@@ -63,14 +63,14 @@ export default function MusicTree({ nodes, selectedId, onNodeClick }: Props) {
       return { ...node, children: children.length ? children.map(buildTree) : undefined };
     }
 
-    const hierarchy = d3.hierarchy<TreeDatum>(buildTree(root));
+    const hierarchyRoot = d3.hierarchy<TreeDatum>(buildTree(root));
     const treeLayout = d3.tree<TreeDatum>().nodeSize([100, 200]);
-    treeLayout(hierarchy);
+    const pointRoot = treeLayout(hierarchyRoot);
 
     // Assign branch colors (by root's direct children subtrees)
     const colorMap = new Map<string, string>();
     colorMap.set(root.id, '#ffffff');
-    const rootChildren = hierarchy.children || [];
+    const rootChildren = pointRoot.children || [];
     rootChildren.forEach((child, i) => {
       child.each(n => colorMap.set(n.data.id, BRANCH_COLORS[i % BRANCH_COLORS.length]));
     });
@@ -85,7 +85,7 @@ export default function MusicTree({ nodes, selectedId, onNodeClick }: Props) {
 
     // Draw edges
     g.selectAll<SVGPathElement, d3.HierarchyLink<TreeDatum>>('.edge')
-      .data(hierarchy.links())
+      .data(pointRoot.links())
       .join('path')
       .attr('class', 'edge')
       .attr('fill', 'none')
@@ -99,7 +99,7 @@ export default function MusicTree({ nodes, selectedId, onNodeClick }: Props) {
 
     // Draw nodes
     const nodeGroups = g.selectAll<SVGGElement, d3.HierarchyPointNode<TreeDatum>>('.node')
-      .data(hierarchy.descendants())
+      .data(pointRoot.descendants())
       .join('g')
       .attr('class', 'node')
       .attr('transform', d => `translate(${d.x},${d.y})`)
