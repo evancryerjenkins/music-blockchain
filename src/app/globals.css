@@ -141,6 +141,8 @@ html, body {
 }
 
 /* Audio player */
+.search-input::placeholder { color: #5555aa; }
+
 .audio-progress::-webkit-slider-thumb {
   appearance: none;
   width: 12px;

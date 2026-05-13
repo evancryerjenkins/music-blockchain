@@ -129,12 +129,11 @@ export default function AddSongModal({ parentNode, isRoot = false, onClose, onAd
               value={query}
               onChange={e => { setQuery(e.target.value); setSelected(null); }}
               placeholder="Search for a song or artist…"
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all search-input"
               style={{
                 background: 'rgba(13,13,40,0.8)',
                 border: '1px solid rgba(139,92,246,0.3)',
                 color: '#e0e0ff',
-                '::placeholder': { color: '#5555aa' },
               }}
             />
             {searching && (
