@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-deep: #04040e;
+  --bg-card: rgba(13, 13, 36, 0.85);
+  --text-primary: #f0f0ff;
+  --text-muted: #7878a8;
+  --border-subtle: rgba(120, 120, 200, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#__next, main {
+  height: 100%;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(120,120,200,0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120,120,200,0.5); }
+
+/* Stars background */
+.stars-container {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle var(--duration, 4s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  opacity: var(--opacity, 0.6);
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: var(--opacity, 0.6); transform: scale(1); }
+  50% { opacity: 0.1; transform: scale(0.5); }
+}
+
+/* Glass card */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Node glow animation */
+@keyframes nodeGlow {
+  0%, 100% { filter: drop-shadow(0 0 8px currentColor); }
+  50% { filter: drop-shadow(0 0 20px currentColor) drop-shadow(0 0 40px currentColor); }
+}
+
+.node-selected {
+  animation: nodeGlow 2s ease-in-out infinite;
+}
+
+/* Tree SVG */
+.tree-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.tree-svg:active {
+  cursor: grabbing;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-panel {
+  animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Info panel */
+.info-panel {
+  animation: slideInRight 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Search result hover */
+.search-result {
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.search-result:hover {
+  background: rgba(139, 92, 246, 0.12);
+  transform: translateX(4px);
+}
+
+/* Badge */
+.similarity-badge {
+  animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Audio player */
+.audio-progress::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #8B5CF6;
+  cursor: pointer;
+}
+
+.audio-progress::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* Pulse ring for addable nodes */
+@keyframes pulseRing {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulseRing 1.5s ease-out infinite;
+}
+
+/* Locked node overlay */
+.locked-overlay {
+  opacity: 0.4;
+}
