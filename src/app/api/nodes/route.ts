@@ -3,8 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { checkSimilarity } from '@/lib/similarity';
 import { MusicNode } from '@/lib/types';
 
-const MAX_DEPTH = 3;
-
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +26,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url } = body;
 
-  // Fetch all existing nodes
   const { data: allNodes, error: fetchError } = await supabase
     .from('music_nodes')
     .select('*');
@@ -37,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const nodes: MusicNode[] = allNodes || [];
 
-  // Root node (no parent) — only if tree is empty
+  // Root node — only if tree is empty
   if (!parent_id) {
     if (nodes.length > 0) {
       return NextResponse.json({ error: 'Tree already has a root node.' }, { status: 400 });
@@ -51,17 +48,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ node: data }, { status: 201 });
   }
 
-  // Find parent
   const parent = nodes.find(n => n.id === parent_id);
   if (!parent) return NextResponse.json({ error: 'Parent node not found.' }, { status: 404 });
 
-  // Check depth limit
-  if (parent.depth >= MAX_DEPTH) {
-    return NextResponse.json({ error: 'This branch has reached its maximum length of 3 nodes and cannot grow further.' }, { status: 400 });
-  }
+  const similarity = checkSimilarity(
+    parent.song_title, parent.artist, parent.genre, parent.year,
+    song_title, artist, genre ?? null, year ?? null,
+  );
 
-  // Check similarity
-  const similarity = checkSimilarity(parent, song_title, artist, genre ?? null, year ?? null);
   if (!similarity.matches) {
     return NextResponse.json({
       error: 'Song does not connect: it must share a word in the title, artist name, genre, or release year with the previous song.',

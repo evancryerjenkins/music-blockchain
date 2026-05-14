@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Music Blockchain</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #fafaf7;
+    --ink: #0d0d0d;
+    --ink-2: #1a1a18;
+    --muted: #6b6b66;
+    --rule: #d9d9d2;
+    --rule-2: #ebebe4;
+    --dead: #b5b5ad;
+    --dead-bg: #f0efea;
+    --accent: oklch(0.62 0.13 55);
+    --accent-soft: oklch(0.94 0.04 70);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .app { position: relative; width: 100vw; height: 100vh; }
+
+  /* ----- Top chrome ----- */
+  .chrome-top {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 28px 36px; z-index: 5; pointer-events: none;
+  }
+  .chrome-top > * { pointer-events: auto; }
+  .brand { display: flex; align-items: baseline; gap: 12px; }
+  .brand .mark { width: 10px; height: 10px; background: var(--ink); display: inline-block; transform: translateY(1px); }
+  .brand h1 { font-size: 14px; font-weight: 500; margin: 0; letter-spacing: 0.02em; }
+  .brand .sub { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+  .meta-strip {
+    display: flex; gap: 22px;
+    font-size: 11px; color: var(--muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .meta-strip b { color: var(--ink); font-weight: 500; }
+  .meta-strip .dead-c b { color: var(--dead); }
+  .meta-strip .main-c b { color: var(--accent); }
+
+  /* ----- Bottom chrome ----- */
+  .chrome-bottom {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 18px 36px 22px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 28px; z-index: 5; pointer-events: none;
+  }
+  .chrome-bottom > * { pointer-events: auto; }
+  .legend {
+    font-size: 11px; color: var(--muted);
+    letter-spacing: 0.04em;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    max-width: 540px;
+  }
+  .legend .key { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .legend .sq { width: 8px; height: 8px; background: var(--ink); }
+  .legend .ci-main { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ink); }
+  .legend .ci-dead { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--dead); background: var(--dead-bg); }
+  .legend .pl { width: 10px; height: 10px; border-radius: 50%; border: 1px dashed var(--ink); }
+
+  .minitree {
+    flex: 1; max-width: 260px;
+    display: flex; align-items: center; justify-content: center;
+    height: 56px; padding: 0 12px;
+  }
+  .minitree svg { display: block; }
+
+  .position-readout {
+    font-size: 11px; color: var(--muted);
+    letter-spacing: 0.06em;
+    min-width: 200px; text-align: right;
+    line-height: 1.5;
+  }
+  .position-readout b { color: var(--ink); font-weight: 500; }
+  .position-readout .br {
+    display: block; margin-top: 3px;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .position-readout .br.main  { color: var(--accent); }
+  .position-readout .br.alive { color: var(--ink); }
+  .position-readout .br.dead  { color: var(--dead); }
+
+  /* ----- Canvas ----- */
+  .canvas {
+    position: absolute; inset: 0;
+    cursor: grab; user-select: none; touch-action: none;
+  }
+  .canvas.dragging { cursor: grabbing; }
+  .spine { position: absolute; left: 0; top: 0; will-change: transform; }
+
+  .main-rail-label {
+    position: absolute;
+    font-size: 9px; color: var(--accent);
+    letter-spacing: 0.24em; text-transform: uppercase;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .tree-svg { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+  .tree-svg path.edge-main      { fill: none; stroke: var(--ink);  stroke-width: 1.5; }
+  .tree-svg path.edge-alive     { fill: none; stroke: var(--ink);  stroke-width: 1; }
+  .tree-svg path.edge-dead      { fill: none; stroke: var(--dead); stroke-width: 1; stroke-dasharray: 4 3; }
+  .tree-svg path.edge-plus      { fill: none; stroke: var(--ink);  stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.6; }
+  .tree-svg path.edge-plus-fork { fill: none; stroke: var(--ink);  stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.45; }
+
+  .node { position: absolute; transform: translate(-50%, -50%); }
+  .node-shape {
+    position: relative;
+    width: 56px; height: 56px;
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    overflow: hidden;
+    transition: transform 240ms cubic-bezier(.2,.7,.2,1.05),
+                box-shadow 240ms ease, border-color 200ms ease, color 200ms ease;
+  }
+  .node.source .node-shape { border-radius: 0; }
+  .node:not(.source):not(.plus) .node-shape { border-radius: 50%; }
+  .node.main .node-shape { border-width: 1.5px; }
+  .node.active .node-shape {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--ink);
+  }
+  .node.hovered .node-shape { transform: scale(1.08); }
+
+  .node.dead .node-shape {
+    border-color: var(--dead);
+    background: var(--dead-bg);
+  }
+  .node.dead .cover-frame { opacity: 0.5; filter: grayscale(0.5); }
+  .node.dead.active .node-shape {
+    box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--dead);
+  }
+  .node.dead .index-label { color: var(--dead); }
+  .node.dead .index-label .ord { color: var(--dead); }
+  .death-tag {
+    position: absolute;
+    top: -14px; left: 50%;
+    transform: translateX(-50%);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 8px; letter-spacing: 0.18em;
+    color: var(--ink); background: var(--bg);
+    padding: 2px 6px;
+    border: 1px solid var(--dead);
+    z-index: 3;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .node.main.head .node-shape::after {
+    content: "";
+    position: absolute; inset: -12px;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    opacity: 0.4;
+    pointer-events: none;
+    animation: pulseRing 2.4s ease-in-out infinite;
+  }
+  @keyframes pulseRing {
+    0%, 100% { opacity: 0.25; transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(1.08); }
+  }
+
+  .cover-frame { position: absolute; inset: 0; }
+  .node:not(.source):not(.plus) .cover-frame { border-radius: 50%; overflow: hidden; }
+
+  /* + nodes */
+  .node.plus { cursor: copy; }
+  .node.plus .node-shape {
+    width: 36px; height: 36px;
+    background: transparent;
+    border: 1px dashed var(--ink);
+    color: var(--ink);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .node.plus.kind-extend-main .node-shape {
+    width: 46px; height: 46px;
+    border-width: 1.25px;
+  }
+  .node.plus.kind-fork-main .node-shape {
+    width: 28px; height: 28px;
+    border-color: var(--ink);
+    opacity: 0.78;
+  }
+  .node.plus:hover .node-shape {
+    border-style: solid;
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.12);
+    box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--accent);
+    opacity: 1;
+  }
+  .plus-sign { width: 14px; height: 14px; pointer-events: none; }
+  .node.plus.kind-extend-main .plus-sign { width: 18px; height: 18px; }
+  .node.plus.kind-fork-main .plus-sign { width: 11px; height: 11px; }
+  .plus-sign line { stroke: currentColor; stroke-width: 1.4; }
+
+  .index-label {
+    position: absolute; bottom: -22px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px; color: var(--muted);
+    letter-spacing: 0.1em;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    white-space: nowrap;
+    transition: color 200ms ease;
+  }
+  .node.plus.kind-fork-main .index-label { bottom: -18px; font-size: 8px; }
+  .node.active .index-label, .node.hovered .index-label { color: var(--ink); }
+  .node.dead.active .index-label, .node.dead.hovered .index-label { color: var(--ink); }
+  .index-label .ord { color: var(--ink); font-weight: 600; }
+  .node.dead .index-label .ord { color: var(--dead); }
+  .node.plus .index-label .ord { color: var(--ink); }
+
+  /* ----- Hover card ----- */
+  .hovercard {
+    position: absolute;
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    padding: 14px 16px 12px;
+    min-width: 240px; max-width: 280px;
+    z-index: 10; pointer-events: none;
+    opacity: 0; transition: opacity 140ms ease;
+    transform: translate(-50%, -100%);
+  }
+  .hovercard.below { transform: translate(-50%, 0%); }
+  .hovercard.show { opacity: 1; }
+  .hovercard::after {
+    content: ""; position: absolute;
+    left: 50%; bottom: -5px; transform: translateX(-50%) rotate(45deg);
+    width: 8px; height: 8px;
+    background: var(--bg);
+    border-right: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+  }
+  .hovercard.below::after {
+    bottom: auto; top: -5px;
+    border-right: none; border-bottom: none;
+    border-left: 1px solid var(--ink);
+    border-top: 1px solid var(--ink);
+  }
+  .hovercard.dead-card { border-color: var(--dead); }
+  .hovercard.dead-card::after { border-color: var(--dead); }
+  .hovercard.plus-card { border-style: dashed; }
+
+  .hovercard .eyebrow {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+    display: flex; justify-content: space-between; gap: 12px;
+  }
+  .hovercard .eyebrow .branch-tag { color: var(--ink); font-weight: 500; }
+  .hovercard .eyebrow .branch-tag.dead { color: var(--dead); }
+  .hovercard .eyebrow .branch-tag.main { color: var(--accent); }
+  .hovercard .title {
+    font-size: 17px; line-height: 1.18; letter-spacing: -0.01em;
+    font-weight: 500; margin: 0 0 4px;
+    text-wrap: pretty;
+  }
+  .hovercard .artist { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; }
+  .hovercard .meta {
+    display: flex; gap: 14px; font-size: 11px;
+    color: var(--muted); letter-spacing: 0.04em;
+    border-top: 1px solid var(--rule); padding-top: 10px;
+    flex-wrap: wrap;
+  }
+  .hovercard .meta b { color: var(--ink); font-weight: 500; }
+  .hovercard .link-reason {
+    margin-top: 10px; font-size: 11px; line-height: 1.4;
+    color: var(--ink);
+    padding: 8px 10px;
+    background: var(--accent-soft);
+    border-left: 2px solid var(--accent);
+  }
+  .hovercard .link-reason .lbl {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 2px;
+  }
+  .hovercard .link-reason em { font-style: normal; color: var(--accent); }
+  .hovercard .death-reason {
+    margin-top: 10px; font-size: 11px; line-height: 1.4;
+    color: var(--ink);
+    padding: 8px 10px;
+    background: var(--dead-bg);
+    border-left: 2px solid var(--dead);
+  }
+  .hovercard .death-reason .lbl {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 2px;
+  }
+  .hovercard .plus-body {
+    font-size: 12px; line-height: 1.5; color: var(--ink);
+    margin: 6px 0 4px;
+  }
+  .hovercard .plus-body .accent { color: var(--accent); font-weight: 500; }
+  .hovercard .plus-meta {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted);
+    display: flex; justify-content: space-between; gap: 12px;
+  }
+  .hovercard .plus-meta b { color: var(--ink); font-weight: 500; }
+  .hovercard .plus-warn {
+    margin-top: 8px; padding: 6px 0 0;
+    font-size: 10px; color: var(--muted); letter-spacing: 0.04em;
+    line-height: 1.5;
+  }
+
+  /* hint */
+  .hint {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    top: 86px;
+    font-size: 11px; color: var(--muted);
+    letter-spacing: 0.16em; text-transform: uppercase;
+    display: flex; gap: 10px; align-items: center;
+    pointer-events: none;
+    transition: opacity 400ms ease;
+  }
+  .hint .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+  .hint.faded { opacity: 0; }
+
+  .edge-mask {
+    position: absolute; top: 0; bottom: 0;
+    width: 120px; pointer-events: none; z-index: 2;
+  }
+  .edge-mask.left { left: 0; background: linear-gradient(90deg, var(--bg) 0%, transparent 100%); }
+  .edge-mask.right { right: 0; background: linear-gradient(-90deg, var(--bg) 0%, transparent 100%); }
+
+  .kbd {
+    display: inline-block;
+    border: 1px solid var(--rule);
+    padding: 1px 5px; border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; color: var(--ink);
+  }
+
+  /* ----- Add-song modal ----- */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(13, 13, 13, 0.42);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    animation: fadeIn 160ms ease both;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .modal {
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    width: 520px; max-width: 100%;
+    max-height: 86vh;
+    display: flex; flex-direction: column;
+    animation: slideIn 220ms cubic-bezier(.2,.7,.2,1.05) both;
+  }
+  .modal-head {
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px;
+  }
+  .modal-head .eyebrow {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .modal-head .eyebrow .tag-accent { color: var(--accent); font-weight: 500; }
+  .modal-head h2 {
+    font-size: 18px; font-weight: 500; margin: 0 0 4px;
+    line-height: 1.25; letter-spacing: -0.01em;
+  }
+  .modal-head .sub {
+    font-size: 12px; color: var(--muted);
+  }
+  .modal-head .sub b { color: var(--ink); font-weight: 500; }
+  .modal-close {
+    background: transparent; border: 0;
+    font-size: 20px; line-height: 1; color: var(--muted);
+    cursor: pointer; padding: 0; margin-top: 2px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  .modal-close:hover { color: var(--ink); }
+
+  .modal-rules {
+    padding: 12px 24px;
+    font-size: 11px; color: var(--ink);
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--rule);
+    letter-spacing: 0.01em; line-height: 1.5;
+  }
+  .modal-rules b { font-weight: 500; }
+  .modal-rules .lbl {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 3px;
+  }
+
+  .modal-search {
+    padding: 16px 24px 8px;
+    position: relative;
+  }
+  .modal-search input {
+    width: 100%;
+    padding: 8px 0 8px 24px;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--ink);
+    font-family: inherit;
+    font-size: 14px; color: var(--ink);
+    outline: none;
+  }
+  .modal-search input:focus { border-bottom-width: 1.5px; }
+  .modal-search input::placeholder { color: var(--muted); }
+  .modal-search .icon {
+    position: absolute; left: 24px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .modal-search .icon svg { display: block; }
+  .modal-search .searching {
+    position: absolute; right: 24px; top: 50%;
+    transform: translateY(-50%);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .modal-results {
+    flex: 1; overflow-y: auto;
+    min-height: 0;
+    padding: 4px 0 8px;
+    scrollbar-width: thin; scrollbar-color: var(--rule) transparent;
+  }
+  .modal-results::-webkit-scrollbar { width: 6px; }
+  .modal-results::-webkit-scrollbar-thumb { background: var(--rule); }
+
+  .modal-empty {
+    padding: 36px 24px;
+    text-align: center;
+    font-size: 12px; color: var(--muted);
+    letter-spacing: 0.03em;
+  }
+
+  .result {
+    display: flex; gap: 12px; align-items: center;
+    width: 100%;
+    padding: 10px 24px;
+    background: transparent;
+    border: 0; border-top: 1px solid var(--rule-2);
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 120ms ease;
+  }
+  .result:first-child { border-top: 0; }
+  .result:hover { background: rgba(0,0,0,0.025); }
+  .result.pass:hover { background: var(--accent-soft); }
+  .result.selected { background: var(--accent-soft); }
+  .result.fail { opacity: 0.55; cursor: not-allowed; }
+  .result.fail:hover { background: transparent; }
+  .result .art {
+    width: 40px; height: 40px;
+    flex-shrink: 0;
+    background: var(--rule-2);
+    border: 1px solid var(--rule);
+    overflow: hidden;
+    display: block;
+  }
+  .result .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .result .art-fallback {
+    width: 40px; height: 40px;
+    background: var(--rule-2);
+    border: 1px solid var(--rule);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: ui-monospace, monospace;
+    font-size: 13px; color: var(--muted);
+  }
+  .result .info {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .result .info .t {
+    font-size: 13px; color: var(--ink); font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .result .info .a {
+    font-size: 11px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .result .badge {
+    flex-shrink: 0;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 6px;
+    border: 1px solid var(--rule);
+    color: var(--muted);
+  }
+  .result.pass .badge {
+    border-color: var(--accent); color: var(--accent);
+  }
+  .result.fail .badge {
+    border-color: var(--dead); color: var(--dead);
+  }
+
+  .modal-foot {
+    border-top: 1px solid var(--rule);
+    padding: 14px 24px;
+  }
+  .modal-foot .reasons {
+    margin-bottom: 12px;
+    font-size: 11px; color: var(--ink);
+    line-height: 1.5;
+  }
+  .modal-foot .reasons .lbl {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 4px;
+  }
+  .modal-foot .reasons.pass { padding: 8px 10px; background: var(--accent-soft); border-left: 2px solid var(--accent); }
+  .modal-foot .reasons.fail { padding: 8px 10px; background: var(--dead-bg); border-left: 2px solid var(--dead); }
+  .modal-foot .reasons ul { margin: 0; padding-left: 18px; }
+  .modal-foot .actions {
+    display: flex; gap: 10px;
+  }
+  .modal-foot .btn {
+    flex: 1;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--ink);
+    background: var(--bg);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+  }
+  .modal-foot .btn:hover { background: var(--ink); color: var(--bg); }
+  .modal-foot .btn.primary { background: var(--ink); color: var(--bg); }
+  .modal-foot .btn.primary:hover { background: var(--bg); color: var(--ink); }
+  .modal-foot .btn:disabled {
+    background: var(--bg); color: var(--muted);
+    border-color: var(--rule); cursor: not-allowed;
+  }
+  .modal-foot .btn:disabled:hover { background: var(--bg); color: var(--muted); }
+
+  .modal-error {
+    margin: 8px 24px 0;
+    padding: 8px 10px;
+    font-size: 11px; color: var(--ink);
+    background: var(--dead-bg);
+    border-left: 2px solid var(--dead);
+  }
+</style>
+</head>
+<body>
+<div id="root" class="app"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* Blockchain rules
+   - Longest path from source = MAIN (always centered on lane 0).
+   - A branch DIES when its fork-point is >= DEAD_LAG behind main head.
+   - Last FORK_PREVIEW main nodes (just before the head) expose tiny
+     "+" fork buds so users can branch off the recent main chain.
+*/
+const DEAD_LAG     = 3;
+const FORK_PREVIEW = DEAD_LAG - 1; // last (DEAD_LAG - 1) main nodes before head get fork buds.
+                                   // A fork at lag = DEAD_LAG is born dead, so we skip it.
+
+const RAW = [
+  { id:"src", parent:null,  side: 0, t:"Aurora Lines",            a:"Hesketh Field",   g:"Ambient",          y:2014, link:null },
+
+  // MAIN (longest path) — 7 blocks incl source
+  { id:"m1",  parent:"src", side: 0, t:"Aurora at Dusk",          a:"Mara Voss",       g:"Folk",             y:2018, link:{kind:"word",   value:"Aurora"} },
+  { id:"m2",  parent:"m1",  side: 0, t:"Ash & Driftwood",         a:"Mara Voss",       g:"Folk",             y:2020, link:{kind:"artist", value:"Mara Voss"} },
+  { id:"m3",  parent:"m2",  side: 0, t:"Driftwood Letters",       a:"Tonal Olchen",    g:"Folk",             y:2020, link:{kind:"word",   value:"Driftwood"} },
+  { id:"m4",  parent:"m3",  side: 0, t:"Letters from the North",  a:"Carmen Ridge",    g:"Folk",             y:2021, link:{kind:"word",   value:"Letters"} },
+  { id:"m5",  parent:"m4",  side: 0, t:"North Star Hum",          a:"Pail Linden",     g:"Ambient",          y:2019, link:{kind:"word",   value:"North"} },
+  { id:"m6",  parent:"m5",  side: 0, t:"Hum of the Long Room",    a:"Pail Linden",     g:"Ambient",          y:2022, link:{kind:"artist", value:"Pail Linden"} },
+
+  // DEAD branch off m1 (5 behind head)
+  { id:"da1", parent:"m1",  side:+1, t:"Dusk Choir",              a:"Felicia Otieno",  g:"Modern Classical", y:2018, link:{kind:"word",   value:"Dusk"} },
+  { id:"da2", parent:"da1", side:+1, t:"Choir at Low Tide",       a:"Vellum Choir",    g:"Modern Classical", y:2019, link:{kind:"word",   value:"Choir"} },
+
+  // DEAD branch off m2 (4 behind head)
+  { id:"db1", parent:"m2",  side:-1, t:"Driftwood B-Sides",       a:"Mara Voss",       g:"Folk",             y:2021, link:{kind:"artist", value:"Mara Voss"} },
+
+  // DEAD branch off m3 — just hit DEAD_LAG (3)
+  { id:"dc1", parent:"m3",  side:+1, t:"Driftless Hours",         a:"Quiet Inheritor", g:"Electronic",       y:2020, link:{kind:"year",   value:"2020"} },
+  { id:"dc2", parent:"dc1", side:+1, t:"Hour of Wires",           a:"Quiet Inheritor", g:"Electronic",       y:2021, link:{kind:"artist", value:"Quiet Inheritor"} },
+
+  // ALIVE branch off m4 (2 behind head)
+  { id:"la1", parent:"m4",  side:-1, t:"Letters in Static",       a:"Esme Holloway",   g:"Indie",            y:2021, link:{kind:"word",   value:"Letters"} },
+
+  // ALIVE branch off m5 (1 behind head)
+  { id:"lb1", parent:"m5",  side:+1, t:"Hum & Static",            a:"Sol Brandt",      g:"Electronic",       y:2019, link:{kind:"year",   value:"2019"} },
+];
+
+/* ---------- analysis ---------- */
+function analyze(raw) {
+  const byId = new Map(raw.map(n => [n.id, n]));
+  const kidsOf = new Map();
+  raw.forEach(n => {
+    if (!n.parent) return;
+    if (!kidsOf.has(n.parent)) kidsOf.set(n.parent, []);
+    kidsOf.get(n.parent).push(n.id);
+  });
+
+  const depth = new Map();
+  const computeDepth = (id) => {
+    if (depth.has(id)) return depth.get(id);
+    const n = byId.get(id);
+    const d = n.parent ? computeDepth(n.parent) + 1 : 0;
+    depth.set(id, d);
+    return d;
+  };
+  raw.forEach(n => computeDepth(n.id));
+
+  const srcId = raw.find(n => !n.parent).id;
+  const longestFrom = (id) => {
+    const ks = kidsOf.get(id) || [];
+    if (!ks.length) return [id];
+    let best = [];
+    for (const k of ks) {
+      const p = longestFrom(k);
+      if (p.length > best.length) best = p;
+    }
+    return [id, ...best];
+  };
+  const mainPath = longestFrom(srcId);
+  const mainSet = new Set(mainPath);
+  const mainHead = byId.get(mainPath[mainPath.length - 1]);
+  const mainHeadDepth = depth.get(mainHead.id);
+
+  const leaves = raw.filter(n => !kidsOf.has(n.id));
+  const branchInfo = new Map();
+  leaves.forEach(leaf => {
+    if (mainSet.has(leaf.id)) return;
+    const chain = [];
+    let cur = leaf;
+    while (cur && !mainSet.has(cur.id)) {
+      chain.push(cur.id);
+      cur = byId.get(cur.parent);
+    }
+    const forkPoint = cur;
+    const lag = mainHeadDepth - depth.get(forkPoint.id);
+    const status = lag >= DEAD_LAG ? "DEAD" : "ALIVE";
+    chain.reverse();
+    branchInfo.set(leaf.id, { forkPoint, status, chain, lag });
+  });
+
+  const status = new Map();
+  raw.forEach(n => {
+    if (mainSet.has(n.id)) { status.set(n.id, "MAIN"); return; }
+    let cur = n;
+    while ((kidsOf.get(cur.id) || []).length) cur = byId.get(kidsOf.get(cur.id)[0]);
+    const info = branchInfo.get(cur.id);
+    status.set(n.id, info ? info.status : "ALIVE");
+  });
+
+  return { byId, kidsOf, depth, mainPath, mainSet, mainHead, mainHeadDepth, branchInfo, status, leaves, srcId };
+}
+
+/* ---------- lane assignment ----------
+   For each non-main branch, allocate the lane CLOSEST to main
+   (lane = ±1, then ±2, …) that doesn't overlap with an existing
+   branch already in that lane. Two branches on the same side at the
+   same lane are fine as long as their x-ranges don't intersect, so the
+   tree stays compact instead of pushing every new branch further out.
+*/
+function assignLanes(raw, ana) {
+  const { mainSet, byId, branchInfo, depth } = ana;
+  const laneOf = new Map();
+  raw.forEach(n => { if (mainSet.has(n.id)) laneOf.set(n.id, 0); });
+
+  const branches = [];
+  branchInfo.forEach((info, leafId) => {
+    const leaf = byId.get(leafId);
+    // The fork point itself lives on main (lane 0), so it doesn't compete
+    // for a side lane — only the branch's own nodes do.
+    const xRange = [depth.get(info.forkPoint.id) + 1, depth.get(leafId)];
+    branches.push({
+      leafId,
+      side: leaf.side || 1,
+      xRange,
+      chain: info.chain,
+    });
+  });
+
+  // Stable-sort: by side, then by forkX so we lay branches left-to-right
+  branches.sort((a, b) => (a.side - b.side) || (a.xRange[0] - b.xRange[0]));
+
+  // For each side we maintain `occupancy[slot]` = array of taken x-ranges
+  const occupancy = { "-1": [], "1": [] };
+  branches.forEach(b => {
+    const key = b.side < 0 ? "-1" : "1";
+    let slot = 1;
+    while (true) {
+      const taken = occupancy[key][slot - 1] || [];
+      const overlap = taken.some(([x0, x1]) =>
+        !(b.xRange[1] + 0.4 < x0 || b.xRange[0] - 0.4 > x1));
+      if (!overlap) {
+        if (!occupancy[key][slot - 1]) occupancy[key][slot - 1] = [];
+        occupancy[key][slot - 1].push(b.xRange);
+        break;
+      }
+      slot++;
+    }
+    const lane = (b.side < 0 ? -1 : 1) * slot;
+    b.chain.forEach(id => laneOf.set(id, lane));
+  });
+
+  return laneOf;
+}
+
+/* ---------- plus generation ---------- */
+function generatePluses(raw, ana, laneOf) {
+  const { mainPath, mainHead, mainHeadDepth, depth, byId, branchInfo, kidsOf } = ana;
+  const pluses = [];
+
+  // 1. Extend main at head
+  pluses.push({
+    id: "+main_head",
+    parent: mainHead.id,
+    xs: mainHeadDepth + 1,
+    lane: 0,
+    kind: "extend-main",
+  });
+
+  // 2. Fork buds on last FORK_PREVIEW main nodes BEFORE the head
+  //    (only positions where forkLag < DEAD_LAG — otherwise born dead)
+  for (let lag = 1; lag <= FORK_PREVIEW; lag++) {
+    const idx = mainPath.length - 1 - lag;
+    if (idx < 1) break; // skip source
+    const mid = mainPath[idx];
+    // bias toward whichever side has fewer existing branches at this fork
+    const childLanes = (kidsOf.get(mid) || []).map(c => laneOf.get(c) || 0);
+    const hasUp = childLanes.some(l => l < 0);
+    const hasDn = childLanes.some(l => l > 0);
+    const side = hasUp && !hasDn ? +1 : (hasDn && !hasUp ? -1 : (lag % 2 === 0 ? +1 : -1));
+    pluses.push({
+      id: `+fork_${mid}`,
+      parent: mid,
+      xs: depth.get(mid),
+      lane: 0,
+      subLane: side * 0.55,
+      kind: "fork-main",
+      forkLag: lag,
+    });
+  }
+
+  // 3. Extend each ALIVE non-main branch
+  branchInfo.forEach((info, leafId) => {
+    if (info.status === "DEAD") return;
+    const leafDepth = depth.get(leafId);
+    pluses.push({
+      id: `+extend_${leafId}`,
+      parent: leafId,
+      xs: leafDepth + 1,
+      lane: laneOf.get(leafId),
+      kind: "extend-branch",
+      branchLag: info.lag,      // lag of fork POINT from main head
+      leafLag: mainHeadDepth - leafDepth, // lag of branch TIP from main head
+    });
+  });
+
+  return pluses;
+}
+
+/* ---------- covers ---------- */
+const COVER_PALETTES = [
+  ["#0d0d0d", "#fafaf7"],
+  ["#e3dcc7", "#0d0d0d"],
+  ["#cfd6cf", "#0d0d0d"],
+  ["#e7c69a", "#0d0d0d"],
+  ["#bbb6a4", "#fafaf7"],
+  ["#0d0d0d", "#d7c8a8"],
+  ["#c2b8a3", "#0d0d0d"],
+  ["#a8a89b", "#fafaf7"],
+];
+function Cover({ seed }) {
+  const [bg, fg] = COVER_PALETTES[Math.abs(seed) % COVER_PALETTES.length];
+  const m = Math.abs(seed) % 6;
+  return (
+    <svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg"
+         preserveAspectRatio="xMidYMid slice"
+         style={{ display: "block", width: "100%", height: "100%" }}>
+      <rect width="56" height="56" fill={bg} />
+      {m === 0 && <circle cx="28" cy="28" r="14" fill={fg} />}
+      {m === 1 && <rect x="0" y="22" width="56" height="12" fill={fg} />}
+      {m === 2 && <rect x="8" y="8" width="40" height="40" fill="none" stroke={fg} strokeWidth="2" />}
+      {m === 3 && <path d="M0 56 L56 0 L56 56 Z" fill={fg} />}
+      {m === 4 && <>
+        <circle cx="20" cy="28" r="10" fill="none" stroke={fg} strokeWidth="2" />
+        <circle cx="36" cy="28" r="10" fill="none" stroke={fg} strokeWidth="2" />
+      </>}
+      {m === 5 && <>
+        <rect x="6"  y="6"  width="8" height="44" fill={fg} />
+        <rect x="22" y="6"  width="8" height="44" fill={fg} opacity="0.6" />
+        <rect x="38" y="6"  width="8" height="44" fill={fg} opacity="0.3" />
+      </>}
+    </svg>
+  );
+}
+
+function PlusSign() {
+  return (
+    <svg className="plus-sign" viewBox="0 0 20 20" fill="none">
+      <line x1="10" y1="4"  x2="10" y2="16" />
+      <line x1="4"  y1="10" x2="16" y2="10" />
+    </svg>
+  );
+}
+
+function linkSentence(link) {
+  if (!link) return null;
+  if (link.kind === "word")   return <>shares the word <em>“{link.value}”</em> with the parent</>;
+  if (link.kind === "artist") return <>same artist — <em>{link.value}</em></>;
+  if (link.kind === "year")   return <>released the same year — <em>{link.value}</em></>;
+  if (link.kind === "genre")  return <>same genre — <em>{link.value}</em></>;
+  return null;
+}
+
+function smoothPath(x1, y1, x2, y2) {
+  if (Math.abs(y1 - y2) < 0.5) return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const dx = x2 - x1;
+  return `M ${x1} ${y1} C ${x1 + dx*0.55} ${y1}, ${x2 - dx*0.45} ${y2}, ${x2} ${y2}`;
+}
+
+/* ---------- similarity check (mirrors lib/similarity.ts) ---------- */
+const STOP_WORDS = new Set([
+  "the","a","an","and","or","but","in","on","at","to","for",
+  "of","with","by","from","is","was","are","be","as","my","me",
+  "i","it","its","you","we","he","she","they","not","no","so",
+]);
+function getSignificantWords(text) {
+  return (text || "").toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !STOP_WORDS.has(w));
+}
+function wordOverlap(t1, t2) {
+  const s = new Set(getSignificantWords(t1));
+  return getSignificantWords(t2).find(w => s.has(w)) || null;
+}
+function checkSimilarity(parent, cand) {
+  const reasons = [];
+  const sharedTitle = wordOverlap(parent.t, cand.title);
+  if (sharedTitle) reasons.push({ kind: "word",   value: sharedTitle, label: `Shares the word “${sharedTitle}” in title` });
+  const sharedArtist = wordOverlap(parent.a, cand.artist);
+  if (sharedArtist) reasons.push({ kind: "artist", value: sharedArtist, label: `Same or related artist (“${sharedArtist}”)` });
+  if (parent.g && cand.genre) {
+    const g1 = parent.g.toLowerCase(), g2 = cand.genre.toLowerCase();
+    if (g1 === g2 || g1.includes(g2) || g2.includes(g1))
+      reasons.push({ kind: "genre", value: cand.genre, label: `Same genre (${cand.genre})` });
+  }
+  if (parent.y && cand.year && parent.y === cand.year)
+    reasons.push({ kind: "year", value: String(cand.year), label: `Released the same year (${cand.year})` });
+  return { matches: reasons.length > 0, reasons };
+}
+
+/* ---------- iTunes search (mirrors /api/search/route.ts) ---------- */
+async function searchITunes(term) {
+  if (!term || term.trim().length < 2) return [];
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=12&lang=en_us`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return (data.results || []).map(r => ({
+    trackId: r.trackId,
+    trackName: r.trackName,
+    artistName: r.artistName,
+    primaryGenreName: r.primaryGenreName,
+    releaseDate: r.releaseDate,
+    artworkUrl: (r.artworkUrl100 || "").replace("100x100", "300x300"),
+    year: r.releaseDate ? new Date(r.releaseDate).getFullYear() : null,
+  }));
+}
+
+/* ---------- AddSong modal ---------- */
+function AddSongModal({ plus, parent, onClose, onAdd }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [error, setError] = useState(null);
+  const inputRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (query.trim().length < 2) { setResults([]); setSearching(false); return; }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const r = await searchITunes(query);
+        setResults(r);
+        setError(null);
+      } catch (e) {
+        setError("Search failed — check your connection and try again.");
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 320);
+    return () => clearTimeout(debounceRef.current);
+  }, [query]);
+
+  const kindLabel = plus.kind === "extend-main" ? "Extend main"
+                  : plus.kind === "fork-main"   ? "Fork from main"
+                  : "Extend branch";
+
+  // Build a candidate object from an iTunes track for the similarity check
+  const toCandidate = (track) => ({
+    title:  track.trackName,
+    artist: track.artistName,
+    genre:  track.primaryGenreName,
+    year:   track.year,
+  });
+
+  const similarity = (selected && parent) ? checkSimilarity(parent, toCandidate(selected)) : null;
+  const canAdd = !!selected && (similarity?.matches ?? false);
+
+  function handleAdd() {
+    if (!canAdd) return;
+    onAdd({
+      track: selected,
+      reasons: similarity.reasons,
+      link: similarity.reasons[0], // first matching reason becomes the chain link
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <div className="modal-head">
+          <div>
+            <div className="eyebrow">
+              <span className="tag-accent">{kindLabel}</span>
+              <span>·</span>
+              <span>after <b style={{ color: "var(--ink)" }}>{parent.id.toUpperCase()}</b></span>
+            </div>
+            <h2>Add a song to the chain</h2>
+            <div className="sub">Continuing from <b>{parent.t}</b> by {parent.a}.</div>
+          </div>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-rules">
+          <span className="lbl">Rule</span>
+          Must share a <b>title word</b>, <b>artist</b>, <b>genre</b>, or <b>release year</b> with the parent.
+        </div>
+
+        <div className="modal-search">
+          <span className="icon">
+            <svg viewBox="0 0 14 14" fill="none" width="14" height="14">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+              <line x1="9.4" y1="9.4" x2="13" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+          </span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelected(null); }}
+            placeholder="Search for a song or artist…"
+          />
+          {searching && <span className="searching">Searching</span>}
+        </div>
+
+        <div className="modal-results">
+          {query.trim().length < 2 && (
+            <div className="modal-empty">
+              Search for a song that connects to <b style={{ color: "var(--ink)", fontWeight: 500 }}>{parent.t}</b>.
+            </div>
+          )}
+          {query.trim().length >= 2 && !searching && results.length === 0 && !error && (
+            <div className="modal-empty">No results.</div>
+          )}
+
+          {results.map(track => {
+            const sim = checkSimilarity(parent, toCandidate(track));
+            const pass = sim.matches;
+            const isChosen = selected?.trackId === track.trackId;
+            const cls = "result " + (pass ? "pass " : "fail ") + (isChosen ? "selected" : "");
+            return (
+              <button key={track.trackId}
+                      className={cls}
+                      disabled={!pass}
+                      onClick={() => setSelected(isChosen ? null : track)}>
+                {track.artworkUrl
+                  ? <span className="art"><img src={track.artworkUrl} alt="" /></span>
+                  : <span className="art-fallback">♪</span>}
+                <span className="info">
+                  <span className="t">{track.trackName}</span>
+                  <span className="a">{track.artistName} · {track.primaryGenreName} · {track.year ?? "—"}</span>
+                </span>
+                <span className="badge">{pass ? "link" : "no link"}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {error && <div className="modal-error">{error}</div>}
+
+        <div className="modal-foot">
+          {selected && similarity && similarity.matches && (
+            <div className="reasons pass">
+              <span className="lbl">Connection</span>
+              <ul>{similarity.reasons.map((r, i) => <li key={i}>{r.label}</li>)}</ul>
+            </div>
+          )}
+          {selected && similarity && !similarity.matches && (
+            <div className="reasons fail">
+              <span className="lbl">No connection</span>
+              “{selected.trackName}” shares no title word, artist, genre, or year with “{parent.t}”.
+            </div>
+          )}
+          <div className="actions">
+            <button className="btn" onClick={onClose}>Cancel</button>
+            <button className="btn primary" disabled={!canAdd} onClick={handleAdd}>
+              {plus.kind === "extend-main" ? "Add to main" : plus.kind === "fork-main" ? "Fork from main" : "Add to branch"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- App ---------- */
+const NODE = 56;
+const STEP = 158;
+const LANE = 134;
+const SOURCE_OFFSET = 180;
+
+function App() {
+  const [rawNodes, setRawNodes] = useState(RAW);
+  const ana = useMemo(() => analyze(rawNodes), [rawNodes]);
+  const laneOf = useMemo(() => assignLanes(rawNodes, ana), [ana, rawNodes]);
+  const pluses = useMemo(() => generatePluses(rawNodes, ana, laneOf), [ana, laneOf, rawNodes]);
+
+  const decorated = useMemo(() => rawNodes.map(n => ({
+    ...n,
+    xs: ana.depth.get(n.id),
+    lane: laneOf.get(n.id) ?? 0,
+    status: ana.status.get(n.id),
+    isMainHead: n.id === ana.mainHead.id,
+    branchLeafId: (() => {
+      let cur = n;
+      while ((ana.kidsOf.get(cur.id) || []).length) cur = ana.byId.get(ana.kidsOf.get(cur.id)[0]);
+      return cur.id;
+    })(),
+  })), [ana, laneOf, rawNodes]);
+  const byIdDeco = useMemo(() => new Map(decorated.map(n => [n.id, n])), [decorated]);
+
+  const allLanes = [...decorated.map(n => n.lane), ...pluses.map(p => p.lane + (p.subLane || 0))];
+  const minLane = Math.min(...allLanes);
+  const maxLane = Math.max(...allLanes);
+  const maxX = Math.max(...decorated.map(n => n.xs), ...pluses.map(p => p.xs));
+  const SVG_W = SOURCE_OFFSET + maxX * STEP + 220;
+  const VERT_PAD = 110;
+  const SVG_H = (maxLane - minLane) * LANE + 2 * VERT_PAD;
+  const Y_FOR_LANE_0 = -minLane * LANE + VERT_PAD;
+
+  const xOf = (n) => SOURCE_OFFSET + n.xs * STEP;
+  const yOf = (n) => Y_FOR_LANE_0 + (n.lane + (n.subLane || 0)) * LANE;
+
+  /* pan/drag (2D) */
+  const [viewportW, setViewportW] = useState(typeof window !== "undefined" ? window.innerWidth  : 1280);
+  const [viewportH, setViewportH] = useState(typeof window !== "undefined" ? window.innerHeight : 800);
+  const spineRef  = useRef(null);
+  const canvasRef = useRef(null);
+  const panRef = useRef({ x: 0, y: 0 });
+  const [, force] = useState(0);
+
+  const minPanX = viewportW * 0.18 - SVG_W;
+  const maxPanX = viewportW * 0.82 - SOURCE_OFFSET;
+  const minPanY = viewportH * 0.30 - SVG_H;
+  const maxPanY = viewportH * 0.70;
+  const initialPanY = viewportH / 2 - Y_FOR_LANE_0;
+  const clampX = (x) => Math.min(maxPanX, Math.max(minPanX, x));
+  const clampY = (y) => Math.min(maxPanY, Math.max(minPanY, y));
+
+  const applyPan = useCallback((x, y) => {
+    const cx = clampX(x);
+    const cy = clampY(y);
+    panRef.current.x = cx;
+    panRef.current.y = cy;
+    if (spineRef.current) spineRef.current.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
+    force(t => t + 1);
+  }, [viewportW, viewportH, SVG_W, SVG_H, Y_FOR_LANE_0]);
+
+  const animRef = useRef(null);
+  const cancelAnim = () => { if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; } };
+  const animateTo = (targetX, targetY) => {
+    cancelAnim();
+    const sx = panRef.current.x, ex = clampX(targetX);
+    const sy = panRef.current.y, ey = clampY(targetY);
+    const dur = 460, t0 = performance.now();
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      applyPan(sx + (ex - sx) * e, sy + (ey - sy) * e);
+      if (p < 1) animRef.current = requestAnimationFrame(tick);
+      else animRef.current = null;
+    };
+    animRef.current = requestAnimationFrame(tick);
+  };
+  const centreOn = (node) =>
+    animateTo(viewportW / 2 - xOf(node), viewportH / 2 - yOf(node));
+
+  const drag = useRef({ active: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0, lastX: 0, lastY: 0, lastT: 0, velX: 0, velY: 0 });
+  const inertia = useRef(null);
+  const cancelInertia = () => { if (inertia.current) { cancelAnimationFrame(inertia.current); inertia.current = null; } };
+  const [hasMoved, setHasMoved] = useState(false);
+
+  useEffect(() => {
+    const el = canvasRef.current; if (!el) return;
+    const onDown = (e) => {
+      cancelAnim(); cancelInertia();
+      el.setPointerCapture?.(e.pointerId);
+      drag.current = {
+        active: true,
+        startX: e.clientX, startY: e.clientY,
+        startPanX: panRef.current.x, startPanY: panRef.current.y,
+        lastX: e.clientX, lastY: e.clientY,
+        lastT: performance.now(),
+        velX: 0, velY: 0,
+      };
+      el.classList.add("dragging");
+    };
+    const onMove = (e) => {
+      if (!drag.current.active) return;
+      const dx = e.clientX - drag.current.startX;
+      const dy = e.clientY - drag.current.startY;
+      applyPan(drag.current.startPanX + dx, drag.current.startPanY + dy);
+      const now = performance.now();
+      const dt = Math.max(8, now - drag.current.lastT);
+      drag.current.velX = (e.clientX - drag.current.lastX) / dt;
+      drag.current.velY = (e.clientY - drag.current.lastY) / dt;
+      drag.current.lastX = e.clientX;
+      drag.current.lastY = e.clientY;
+      drag.current.lastT = now;
+      const totalMove = Math.hypot(dx, dy);
+      if (!hasMoved && totalMove > 12) setHasMoved(true);
+    };
+    const endDrag = () => {
+      if (!drag.current.active) return;
+      drag.current.active = false;
+      el.classList.remove("dragging");
+      let vx = drag.current.velX * 16;
+      let vy = drag.current.velY * 16;
+      const tick = () => {
+        vx *= 0.93; vy *= 0.93;
+        if (Math.hypot(vx, vy) < 0.3) { inertia.current = null; return; }
+        applyPan(panRef.current.x + vx, panRef.current.y + vy);
+        inertia.current = requestAnimationFrame(tick);
+      };
+      inertia.current = requestAnimationFrame(tick);
+    };
+    el.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+    };
+  }, [hasMoved, applyPan]);
+
+  useEffect(() => {
+    const el = canvasRef.current; if (!el) return;
+    const onWheel = (e) => {
+      if (e.deltaX === 0 && e.deltaY === 0) return;
+      e.preventDefault();
+      cancelAnim(); cancelInertia();
+      // shift+wheel → horizontal pan, plain wheel → vertical pan
+      const dx = e.shiftKey ? e.deltaY : e.deltaX;
+      const dy = e.shiftKey ? 0       : e.deltaY;
+      applyPan(panRef.current.x - dx, panRef.current.y - dy * 0.6);
+      if (!hasMoved) setHasMoved(true);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [hasMoved, applyPan]);
+
+  useEffect(() => {
+    const onR = () => { setViewportW(window.innerWidth); setViewportH(window.innerHeight); };
+    window.addEventListener("resize", onR);
+    return () => window.removeEventListener("resize", onR);
+  }, []);
+
+  useEffect(() => { applyPan(viewportW * 0.18 - SOURCE_OFFSET, initialPanY); }, [viewportW, viewportH]);
+
+  /* sel/hover */
+  const [activeId, setActiveId] = useState("src");
+  const [hoverId, setHoverId]   = useState(null);
+  const [addingPlus, setAddingPlus] = useState(null);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const mp = ana.mainPath;
+      const i = mp.indexOf(activeId);
+      if (e.key === "ArrowRight" && i >= 0 && i < mp.length - 1) {
+        const next = byIdDeco.get(mp[i + 1]);
+        setActiveId(next.id); centreOn(next); setHasMoved(true);
+      } else if (e.key === "ArrowLeft" && i > 0) {
+        const prev = byIdDeco.get(mp[i - 1]);
+        setActiveId(prev.id); centreOn(prev); setHasMoved(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeId, ana.mainPath]);
+
+  /* ---- handle a successful add from the modal ---- */
+  function handleAdd({ track, reasons, link }) {
+    if (!addingPlus) return;
+    const plus = addingPlus;
+    const parent = ana.byId.get(plus.parent);
+
+    // Decide the new node's side (for lane assignment)
+    let side = 0;
+    if (plus.kind === "extend-main") {
+      side = 0;
+    } else if (plus.kind === "fork-main") {
+      side = (plus.subLane || 0) >= 0 ? +1 : -1;
+    } else {
+      side = (laneOf.get(parent.id) || 0) >= 0 ? +1 : -1;
+    }
+
+    const newId = "u" + Date.now().toString(36);
+    const newNode = {
+      id: newId,
+      parent: parent.id,
+      side,
+      t: track.trackName,
+      a: track.artistName,
+      g: track.primaryGenreName || "",
+      y: track.year || null,
+      link: { kind: link.kind, value: link.value },
+      cover: track.artworkUrl || null,
+    };
+    setRawNodes(prev => [...prev, newNode]);
+    setAddingPlus(null);
+    // Focus the freshly-planted node and bring it into view
+    setActiveId(newId);
+    setTimeout(() => {
+      const depth = (parent && (ana.depth.get(parent.id) ?? 0)) + 1;
+      const x = SOURCE_OFFSET + depth * STEP;
+      animateTo(viewportW / 2 - x, viewportH / 2 - (Y_FOR_LANE_0 + (side) * LANE));
+    }, 60);
+  }
+
+  /* edges */
+  const edges = useMemo(() => {
+    const out = [];
+    decorated.forEach(n => {
+      if (!n.parent) return;
+      const p = byIdDeco.get(n.parent);
+      const type = (n.status === "DEAD" || p.status === "DEAD") ? "dead"
+                 : (n.status === "MAIN" && p.status === "MAIN") ? "main" : "alive";
+      out.push({ type, from: p, to: n });
+    });
+    pluses.forEach(pl => {
+      const p = byIdDeco.get(pl.parent);
+      const type = pl.kind === "fork-main" ? "plus-fork" : "plus";
+      out.push({ type, from: p, to: pl });
+    });
+    return out;
+  }, [pluses, decorated]);
+
+  /* focus */
+  const allNodes = [...decorated, ...pluses];
+  // Tooltip only shows on hover; bottom readout uses active+hover.
+  const focusId = hoverId;
+  const readoutId = hoverId ?? activeId;
+  const focusNode = allNodes.find(n => n.id === focusId);
+  const readoutNode = allNodes.find(n => n.id === readoutId);
+  const focusIsPlus = !!focusNode?.kind;
+  const focusScreenX = focusNode ? xOf(focusNode) + panRef.current.x : 0;
+  const focusScreenY = focusNode ? yOf(focusNode) + panRef.current.y : 0;
+  const focusLaneEff = (focusNode?.lane ?? 0) + (focusNode?.subLane || 0);
+  const cardBelow = focusLaneEff < 0;
+  const focusH = focusIsPlus ? (focusNode.kind === "fork-main" ? 28 : focusNode.kind === "extend-main" ? 46 : 36) : NODE;
+  const cardTop = cardBelow ? focusScreenY + focusH/2 + 12 : focusScreenY - focusH/2 - 12;
+  const focusParent = focusNode?.parent ? byIdDeco.get(focusNode.parent) : null;
+
+  /* mini-tree */
+  const MiniTree = () => {
+    const W = 240, H = 56;
+    const ySpan = Math.max(1, maxLane - minLane);
+    const sx = (n) => 12 + (n.xs / maxX) * (W - 24);
+    const sy = (n) => H/2 + ((n.lane + (n.subLane || 0) - (minLane + maxLane) / 2) / ySpan) * (H - 16);
+    return (
+      <svg width={W} height={H}>
+        {edges.map((e, i) => {
+          const x1 = sx(e.from), y1 = sy(e.from);
+          const x2 = sx(e.to),   y2 = sy(e.to);
+          const path = Math.abs(y1 - y2) < 0.5
+            ? `M ${x1} ${y1} L ${x2} ${y2}`
+            : `M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}`;
+          let color = "#0d0d0d", dash = "0", w = 0.8, alpha = 0.7;
+          if (e.type === "main") { w = 1.4; alpha = 0.95; }
+          if (e.type === "dead") { color = "#b5b5ad"; dash = "2 2"; alpha = 0.9; }
+          if (e.type === "plus" || e.type === "plus-fork") { dash = "1.5 1.5"; alpha = 0.5; }
+          return <path key={i} d={path} stroke={color} strokeWidth={w} strokeDasharray={dash} fill="none" opacity={alpha} />;
+        })}
+        {decorated.map(n => {
+          const cx = sx(n), cy = sy(n);
+          const isFocus = n.id === readoutId;
+          const color = isFocus ? "var(--accent)" : (n.status === "DEAD" ? "#b5b5ad" : "#0d0d0d");
+          if (n.id === ana.srcId)
+            return <rect key={n.id} x={cx-3} y={cy-3} width="6" height="6" fill={color} />;
+          return <circle key={n.id} cx={cx} cy={cy} r={n.status === "MAIN" ? 3 : 2.5} fill={color} />;
+        })}
+        {pluses.map(p => {
+          const cx = sx(p), cy = sy(p);
+          const isFocus = p.id === readoutId;
+          return <circle key={p.id} cx={cx} cy={cy} r="2.4"
+                         fill="none"
+                         stroke={isFocus ? "var(--accent)" : "#0d0d0d"}
+                         strokeDasharray="1.2 1.2" strokeWidth="0.9" />;
+        })}
+      </svg>
+    );
+  };
+
+  const showHint = !hasMoved;
+  const mainCount = ana.mainPath.length;
+  const deadCount = decorated.filter(n => n.status === "DEAD").length;
+  const aliveCount = decorated.filter(n => n.status === "ALIVE").length;
+
+  const branchTag = (n) => {
+    if (n.status === "MAIN") return { label: "Main", cls: "main" };
+    if (n.status === "DEAD") return { label: "Dead", cls: "dead" };
+    return { label: "Alive", cls: "" };
+  };
+
+  return (
+    <div className="app">
+      {/* top */}
+      <div className="chrome-top">
+        <div className="brand">
+          <span className="mark"></span>
+          <div>
+            <h1>Music Blockchain</h1>
+            <div className="sub">Longest chain wins. Branches die after {DEAD_LAG} blocks.</div>
+          </div>
+        </div>
+        <div className="meta-strip">
+          <span className="main-c"><b>{mainCount}</b> &nbsp;main</span>
+          <span><b>{aliveCount}</b> &nbsp;alive</span>
+          <span className="dead-c"><b>{deadCount}</b> &nbsp;dead</span>
+          <span><b>{decorated.length}</b> &nbsp;total</span>
+        </div>
+      </div>
+
+      <div className={"hint " + (showHint ? "" : "faded")}>
+        <span>drag in any direction</span>
+        <span className="dot"></span>
+        <span>hover for details</span>
+        <span className="dot"></span>
+        <span>click <span className="kbd">+</span> at any tip to extend</span>
+      </div>
+
+      <div className="canvas" ref={canvasRef}>
+        <div className="spine" ref={spineRef}
+             style={{ width: SVG_W, height: SVG_H,
+                      transform: `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0)` }}>
+
+          <div className="main-rail-label"
+               style={{ left: SOURCE_OFFSET + ana.mainHeadDepth * STEP - 80, top: Y_FOR_LANE_0 - 56 }}>
+            Main branch · longest chain
+          </div>
+
+          <svg className="tree-svg" width={SVG_W} height={SVG_H}>
+            {edges.map((e, i) => {
+              const cls = e.type === "main"      ? "edge-main"
+                        : e.type === "dead"      ? "edge-dead"
+                        : e.type === "plus"      ? "edge-plus"
+                        : e.type === "plus-fork" ? "edge-plus-fork"
+                        : "edge-alive";
+              return <path key={i} className={cls}
+                           d={smoothPath(xOf(e.from), yOf(e.from), xOf(e.to), yOf(e.to))} />;
+            })}
+          </svg>
+
+          {decorated.map(n => {
+            const isSource = n.id === ana.srcId;
+            const cls = ["node",
+                         isSource ? "source" : "",
+                         n.status === "MAIN" ? "main" : "",
+                         n.status === "DEAD" ? "dead" : "",
+                         n.isMainHead ? "head" : "",
+                         n.id === activeId ? "active" : "",
+                         n.id === hoverId ? "hovered" : ""].filter(Boolean).join(" ");
+            const seed = n.xs * 5 + (n.lane + 3) * 7 + (isSource ? 1 : 0);
+            const showDeadTag = n.status === "DEAD" && n.id === n.branchLeafId;
+            return (
+              <div key={n.id} className={cls}
+                   style={{ left: xOf(n), top: yOf(n) }}
+                   onMouseEnter={() => setHoverId(n.id)}
+                   onMouseLeave={() => setHoverId(null)}
+                   onClick={(e) => { e.stopPropagation(); setActiveId(n.id); centreOn(n); }}>
+                <div className="node-shape">
+                  <div className="cover-frame">
+                    {n.cover
+                      ? <img src={n.cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      : <Cover seed={seed} />}
+                  </div>
+                </div>
+                {showDeadTag && <div className="death-tag">DEAD</div>}
+                <div className="index-label">
+                  <span className="ord">
+                    {isSource ? "00 · SOURCE" : (n.isMainHead ? n.id.toUpperCase() + " · HEAD" : n.id.toUpperCase())}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {pluses.map(p => {
+            const cls = ["node", "plus", "kind-" + p.kind,
+                         p.id === hoverId ? "hovered" : ""].filter(Boolean).join(" ");
+            const label = p.kind === "extend-main" ? "EXTEND MAIN"
+                        : p.kind === "fork-main"   ? "FORK"
+                        : "EXTEND";
+            return (
+              <div key={p.id} className={cls}
+                   style={{ left: xOf(p), top: yOf(p) }}
+                   onMouseEnter={() => setHoverId(p.id)}
+                   onMouseLeave={() => setHoverId(null)}
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     setActiveId(p.id);
+                     setHoverId(null);
+                     setAddingPlus(p);
+                   }}>
+                <div className="node-shape"><PlusSign /></div>
+                <div className="index-label"><span className="ord">{label}</span></div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="edge-mask left"></div>
+        <div className="edge-mask right"></div>
+
+        {/* Hovercard: song */}
+        {focusNode && !focusIsPlus && (() => {
+          const tag = branchTag(focusNode);
+          const klass = "hovercard show " + (focusNode.status === "DEAD" ? "dead-card " : "") + (cardBelow ? "below" : "");
+          return (
+            <div className={klass} style={{ left: focusScreenX, top: cardTop }}>
+              <div className="eyebrow">
+                <span className={"branch-tag " + tag.cls}>{tag.label} branch</span>
+                <span className="mono">{focusNode.y}</span>
+              </div>
+              <div className="title">{focusNode.t}</div>
+              <div className="artist">{focusNode.a}</div>
+              <div className="meta">
+                <span><b>Genre</b> &nbsp; {focusNode.g}</span>
+                <span><b>Block</b> &nbsp; {focusNode.id.toUpperCase()}</span>
+                <span><b>Depth</b> &nbsp; {focusNode.xs}</span>
+              </div>
+              {focusNode.status === "DEAD" && (() => {
+                const info = ana.branchInfo.get(focusNode.branchLeafId);
+                return (
+                  <div className="death-reason">
+                    <span className="lbl">Dead branch</span>
+                    Fork point sits <em style={{ fontStyle: "normal", color: "var(--ink)", fontWeight: 500 }}>{info?.lag}</em> blocks behind the main head — past the {DEAD_LAG}-block limit.
+                  </div>
+                );
+              })()}
+              {focusParent && focusNode.link && focusNode.status !== "DEAD" && (
+                <div className="link-reason">
+                  <span className="lbl">Link to {focusParent.id.toUpperCase()}</span>
+                  {linkSentence(focusNode.link)}
+                </div>
+              )}
+              {focusNode.status === "DEAD" && focusParent && focusNode.link && (
+                <div className="link-reason" style={{ background: "var(--dead-bg)", borderLeftColor: "var(--dead)", marginTop: 8 }}>
+                  <span className="lbl">Originally linked by</span>
+                  {linkSentence(focusNode.link)}
+                </div>
+              )}
+              {!focusParent && (
+                <div className="link-reason">
+                  <span className="lbl">Genesis</span>
+                  The seed block. Every chain in the system descends from here.
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Hovercard: plus */}
+        {focusNode && focusIsPlus && (() => {
+          const isFork = focusNode.kind === "fork-main";
+          const isExtendMain = focusNode.kind === "extend-main";
+          const klass = "hovercard show plus-card " + (cardBelow ? "below" : "");
+          const parentNode = byIdDeco.get(focusNode.parent);
+
+          // FORK off main at lag L:
+          //   first new block lands at lag (L - 1) behind current main head;
+          //   need (L + 1) blocks total to overtake current main;
+          //   branch dies if main grows (DEAD_LAG - L) more blocks first.
+          // EXTEND living branch: leafLag = current lag of tip; branchLag = lag of fork point.
+          let behind = 0, toOvertake = 0, mainGraceBlocks = 0;
+          if (isFork) {
+            behind = focusNode.forkLag - 1;
+            toOvertake = focusNode.forkLag + 1;
+            mainGraceBlocks = Math.max(0, DEAD_LAG - focusNode.forkLag);
+          } else if (!isExtendMain) {
+            behind = focusNode.leafLag;
+            toOvertake = focusNode.leafLag + 1;
+            mainGraceBlocks = Math.max(0, DEAD_LAG - focusNode.branchLag);
+          }
+          const pl = (n, s = "block") => `${n} ${n === 1 ? s : s + "s"}`;
+
+          return (
+            <div className={klass} style={{ left: focusScreenX, top: cardTop }}>
+              <div className="eyebrow">
+                <span className={"branch-tag " + (isExtendMain || isFork ? "main" : "")}>
+                  {isExtendMain ? "Extend main" : isFork ? "Fork from main" : "Extend branch"}
+                </span>
+                <span className="mono">OPEN</span>
+              </div>
+              <div className="title">
+                {isExtendMain ? "Add the next main block"
+                  : isFork ? <>Fork off <span style={{color: "var(--accent)"}}>{parentNode.id.toUpperCase()}</span></>
+                  : "Continue this branch"}
+              </div>
+              <div className="plus-body">
+                {isExtendMain && <>
+                  Plant the next block at the head of the chain. Must share a word, artist, year, or genre with <b>{parentNode.t}</b>.
+                </>}
+                {isFork && <>
+                  Start a new branch from <b>{parentNode.t}</b>. The first block lands {behind === 0 ? <>tied with main</> : <><span className="accent">{pl(behind)}</span> behind main</>}. Add <span className="accent">{pl(toOvertake)}</span> total to overtake and become the new main.
+                </>}
+                {!isFork && !isExtendMain && <>
+                  Extend this living branch. The tip is currently {behind === 0 ? <>tied with main</> : <><span className="accent">{pl(behind)}</span> behind main</>}. Add <span className="accent">{pl(toOvertake)}</span> more to overtake.
+                </>}
+              </div>
+              <div className="plus-meta">
+                <span>Depth &nbsp; <b>{focusNode.xs}</b></span>
+                <span>{isExtendMain
+                       ? "MAIN HEAD"
+                       : mainGraceBlocks === 0
+                         ? "DIES ON NEXT MAIN BLOCK"
+                         : `DIES IF MAIN ×${mainGraceBlocks} FIRST`}</span>
+              </div>
+              {(isFork || (!isExtendMain && !isFork)) && (
+                <div className="plus-warn">
+                  Longest chain wins. A branch dies once its fork point falls {DEAD_LAG} blocks behind the main head.
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      <div className="chrome-bottom">
+        <div className="legend">
+          <span className="key"><span className="sq"></span> source</span>
+          <span className="key"><span className="ci-main"></span> main</span>
+          <span className="key"><span style={{ width: 8, height: 8, borderRadius: "50%", border: "1px solid var(--ink)"}}></span> alive</span>
+          <span className="key"><span className="ci-dead"></span> dead</span>
+          <span className="key"><span className="pl"></span> extend</span>
+        </div>
+
+        <div className="minitree"><MiniTree /></div>
+
+        <div className="position-readout mono">
+          <b>{readoutNode?.kind
+              ? (readoutNode.kind === "extend-main" ? "EXTEND MAIN" : readoutNode.kind === "fork-main" ? "FORK" : "EXTEND")
+              : readoutNode?.id.toUpperCase()}</b>
+          &nbsp;·&nbsp; depth <b>{readoutNode?.xs ?? 0}</b>
+          <span className={"br " + (readoutNode?.status === "MAIN" ? "main" : readoutNode?.status === "DEAD" ? "dead" : "alive")}>
+            {readoutNode?.kind
+              ? (readoutNode.kind === "fork-main" ? "Fork bud · open" : readoutNode.kind === "extend-main" ? "Main head · open" : "Branch tip · open")
+              : (readoutNode?.status === "MAIN" ? "Main branch" : readoutNode?.status === "DEAD" ? "Dead branch" : "Alive branch")}
+          </span>
+        </div>
+      </div>
+
+      {/* Add-song modal */}
+      {addingPlus && (
+        <AddSongModal
+          plus={addingPlus}
+          parent={ana.byId.get(addingPlus.parent)}
+          onClose={() => setAddingPlus(null)}
+          onAdd={handleAdd}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

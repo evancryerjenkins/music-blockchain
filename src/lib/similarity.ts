@@ -1,4 +1,4 @@
-import { MusicNode, SimilarityResult } from './types';
+import { SimilarityResult, SimilarityReason } from './types';
 
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
@@ -7,46 +7,47 @@ const STOP_WORDS = new Set([
 ]);
 
 function getSignificantWords(text: string): string[] {
-  return text
+  return (text || '')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 1 && !STOP_WORDS.has(w));
 }
 
-function hasWordOverlap(text1: string, text2: string): boolean {
-  const words1 = new Set(getSignificantWords(text1));
-  return getSignificantWords(text2).some(w => words1.has(w));
+function wordOverlap(t1: string, t2: string): string | null {
+  const s = new Set(getSignificantWords(t1));
+  return getSignificantWords(t2).find(w => s.has(w)) ?? null;
 }
 
 export function checkSimilarity(
-  parent: MusicNode,
+  parentTitle: string,
+  parentArtist: string,
+  parentGenre: string | null,
+  parentYear: number | null,
   candidateTitle: string,
   candidateArtist: string,
   candidateGenre: string | null,
-  candidateYear: number | null
+  candidateYear: number | null,
 ): SimilarityResult {
-  const reasons: string[] = [];
+  const reasons: SimilarityReason[] = [];
 
-  if (hasWordOverlap(parent.song_title, candidateTitle)) {
-    reasons.push(`Shares a word in the title`);
-  }
+  const sharedTitle = wordOverlap(parentTitle, candidateTitle);
+  if (sharedTitle)
+    reasons.push({ kind: 'word', value: sharedTitle, label: `Shares the word "${sharedTitle}" in title` });
 
-  if (hasWordOverlap(parent.artist, candidateArtist)) {
-    reasons.push(`Same or related artist`);
-  }
+  const sharedArtist = wordOverlap(parentArtist, candidateArtist);
+  if (sharedArtist)
+    reasons.push({ kind: 'artist', value: sharedArtist, label: `Same or related artist ("${sharedArtist}")` });
 
-  if (parent.genre && candidateGenre) {
-    const g1 = parent.genre.toLowerCase();
+  if (parentGenre && candidateGenre) {
+    const g1 = parentGenre.toLowerCase();
     const g2 = candidateGenre.toLowerCase();
-    if (g1 === g2 || g1.includes(g2) || g2.includes(g1)) {
-      reasons.push(`Same genre: ${candidateGenre}`);
-    }
+    if (g1 === g2 || g1.includes(g2) || g2.includes(g1))
+      reasons.push({ kind: 'genre', value: candidateGenre, label: `Same genre (${candidateGenre})` });
   }
 
-  if (parent.year && candidateYear && parent.year === candidateYear) {
-    reasons.push(`Released in the same year (${candidateYear})`);
-  }
+  if (parentYear && candidateYear && parentYear === candidateYear)
+    reasons.push({ kind: 'year', value: String(candidateYear), label: `Released the same year (${candidateYear})` });
 
   return { matches: reasons.length > 0, reasons };
 }

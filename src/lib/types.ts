@@ -23,7 +23,13 @@ export interface ItunesTrack {
   previewUrl: string | null;
 }
 
+export interface SimilarityReason {
+  kind: 'word' | 'artist' | 'genre' | 'year';
+  value: string;
+  label: string;
+}
+
 export interface SimilarityResult {
   matches: boolean;
-  reasons: string[];
+  reasons: SimilarityReason[];
 }

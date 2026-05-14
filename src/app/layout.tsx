@@ -3,10 +3,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Music Blockchain — Chain your favourite songs',
-  description: 'A collaborative music tree where every song must connect to the last. Share songs that share a title word, artist, genre, or release year.',
+  description: 'A collaborative music tree where every song must connect to the last via a title word, artist, genre, or release year.',
   openGraph: {
     title: 'Music Blockchain',
-    description: 'Build a living tree of connected songs.',
+    description: 'Build a living chain of connected songs. Longest chain wins.',
     type: 'website',
   },
 };
