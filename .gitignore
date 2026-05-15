@@ -17,6 +17,11 @@
 # misc
 .DS_Store
 *.pem
+*.png
+
+# tools
+.mcp.json
+.playwright-mcp/
 
 # debug
 npm-debug.log*

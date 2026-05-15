@@ -27,7 +27,7 @@ interface PlusNode {
   xs: number;
   lane: number;
   subLane?: number;
-  kind: 'extend-main' | 'fork-main' | 'extend-branch';
+  kind: 'extend-main' | 'fork-main' | 'extend-branch' | 'fork-branch';
   forkLag?: number;
   branchLag?: number;
   leafLag?: number;
@@ -191,11 +191,12 @@ function assignLanes(raw: RawNode[], ana: Analysis): Map<string, number> {
     forkSideCounter.set(forkId, count + 1);
     // Alternate sides: first branch below (+1), second above (-1), etc.
     const side = count % 2 === 0 ? 1 : -1;
-    const xRange: [number, number] = [depth.get(info.forkPoint.id)! + 1, depth.get(leafId)!];
+    const leafDepth = depth.get(leafId)!;
+    const xRange: [number, number] = [depth.get(info.forkPoint.id)! + 1, info.status === 'ALIVE' ? leafDepth + 1 : leafDepth];
     branches.push({ leafId, side, xRange, chain: info.chain });
   });
 
-  branches.sort((a, b) => (a.side - b.side) || (a.xRange[0] - b.xRange[0]));
+  branches.sort((a, b) => (a.side - b.side) || (b.xRange[0] - a.xRange[0]));
 
   const occupancy: Record<string, [number, number][][]> = { '-1': [], '1': [] };
   branches.forEach(b => {
@@ -223,32 +224,38 @@ function assignLanes(raw: RawNode[], ana: Analysis): Map<string, number> {
 /* ------------------------------------------------------------------ */
 
 function generatePluses(raw: RawNode[], ana: Analysis, laneOf: Map<string, number>): PlusNode[] {
-  const { mainPath, mainHead, mainHeadDepth, depth, branchInfo, kidsOf } = ana;
+  const { mainPath, mainHead, mainHeadDepth, depth, branchInfo, kidsOf, mainSet } = ana;
   const pluses: PlusNode[] = [];
 
-  pluses.push({
-    id: '+main_head',
-    parent: mainHead.id,
-    xs: mainHeadDepth + 1,
-    lane: 0,
-    kind: 'extend-main',
-  });
+  if ((kidsOf.get(mainHead.id) ?? []).length < 3) {
+    pluses.push({
+      id: '+main_head',
+      parent: mainHead.id,
+      xs: mainHeadDepth + 1,
+      lane: 0,
+      kind: 'extend-main',
+    });
+  }
 
   for (let lag = 1; lag <= FORK_PREVIEW; lag++) {
     const idx = mainPath.length - 1 - lag;
-    if (idx < 1) break;
+    if (idx < 0) break;
     const mid = mainPath[idx];
-    const childLanes = (kidsOf.get(mid) || []).map(c => laneOf.get(c) ?? 0);
-    const hasUp = childLanes.some(l => l < 0);
-    const hasDn = childLanes.some(l => l > 0);
-    if (hasUp && hasDn) continue;
-    const side = hasUp ? 1 : hasDn ? -1 : lag % 2 === 0 ? 1 : -1;
+    if ((kidsOf.get(mid) ?? []).length >= 3) continue;
+    const midDepth = depth.get(mid)!;
+    // Check all non-main nodes at this depth to detect branches passing through the same column.
+    const lanesAtDepth = raw
+      .filter(n => !mainSet.has(n.id) && depth.get(n.id) === midDepth)
+      .map(n => laneOf.get(n.id) ?? 0);
+    const hasUp = lanesAtDepth.some(l => l < 0);
+    const hasDn = lanesAtDepth.some(l => l > 0);
+    const side = hasUp && !hasDn ? 1 : !hasUp && hasDn ? -1 : lag % 2 === 0 ? 1 : -1;
     pluses.push({
       id: `+fork_${mid}`,
       parent: mid,
-      xs: depth.get(mid)!,
+      xs: midDepth,
       lane: 0,
-      subLane: side * 0.55,
+      subLane: side * 0.35,
       kind: 'fork-main',
       forkLag: lag,
     });
@@ -266,6 +273,25 @@ function generatePluses(raw: RawNode[], ana: Analysis, laneOf: Map<string, numbe
       branchLag: info.lag,
       leafLag: mainHeadDepth - leafDepth,
     });
+
+    // Fork pluses for 1 and 2 nodes behind the branch leaf
+    for (let lag = 1; lag <= FORK_PREVIEW; lag++) {
+      const chainIdx = info.chain.length - 1 - lag;
+      if (chainIdx < 0) break;
+      const nodeId = info.chain[chainIdx];
+      if ((kidsOf.get(nodeId) ?? []).length >= 3) continue;
+      const nodeLane = laneOf.get(nodeId) ?? 0;
+      const nodeDepth = depth.get(nodeId)!;
+      pluses.push({
+        id: `+fork_branch_${nodeId}`,
+        parent: nodeId,
+        xs: nodeDepth,
+        lane: nodeLane,
+        subLane: (nodeLane >= 0 ? 1 : -1) * 0.35,
+        kind: 'fork-branch',
+        forkLag: mainHeadDepth - nodeDepth,
+      });
+    }
   });
 
   return pluses;
@@ -316,6 +342,16 @@ function PlusSign() {
     <svg className="plus-sign" viewBox="0 0 20 20" fill="none">
       <line x1="10" y1="4"  x2="10" y2="16" />
       <line x1="4"  y1="10" x2="16" y2="10" />
+    </svg>
+  );
+}
+
+function ForkArrow({ dir }: { dir: 'up' | 'down' }) {
+  return (
+    <svg className="fork-arrow" viewBox="0 0 20 14" fill="none">
+      {dir === 'down'
+        ? <path d="M4 3 L10 11 L16 3" strokeLinecap="round" strokeLinejoin="round" />
+        : <path d="M4 11 L10 3 L16 11" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
   );
 }
@@ -410,6 +446,11 @@ export default function HomePage() {
       cur = cur.parent ? ana.byId.get(cur.parent) : undefined;
       steps++;
     }
+    // Exclude all existing children — no two siblings can be the same song.
+    for (const kidId of ana.kidsOf.get(addingPlus.parent) ?? []) {
+      const kid = ana.byId.get(kidId);
+      if (kid) songs.push({ t: kid.t, a: kid.a });
+    }
     return songs;
   }, [ana, addingPlus]);
 
@@ -430,6 +471,17 @@ export default function HomePage() {
   }, [ana, laneOf, rawNodes]);
 
   const byIdDeco = useMemo(() => new Map(decorated.map(n => [n.id, n])), [decorated]);
+
+  /* Nodes that have a downward fork indicator — their label must move above */
+  const nodesWithDownFork = useMemo(() => {
+    const set = new Set<string>();
+    pluses.forEach(p => {
+      if ((p.kind === 'fork-main' || p.kind === 'fork-branch') && (p.subLane ?? 0) > 0) {
+        set.add(p.parent);
+      }
+    });
+    return set;
+  }, [pluses]);
 
   /* Layout dimensions */
   const allLanes = [...decorated.map(n => n.lane), ...pluses.map(p => (p.lane ?? 0) + (p.subLane ?? 0))];
@@ -666,7 +718,7 @@ export default function HomePage() {
   const focusIsPlus2 = focusIsPlus;
   const focusPKind   = (focusNode as PlusNode | undefined)?.kind;
   const focusH       = focusIsPlus2
-    ? (focusPKind === 'fork-main' ? 28 : focusPKind === 'extend-main' ? 46 : 36)
+    ? (focusPKind === 'fork-main' || focusPKind === 'fork-branch' ? 28 : focusPKind === 'extend-main' ? 46 : 36)
     : NODE;
   const cardTop      = cardBelow
     ? focusScreenY + focusH / 2 + 12
@@ -871,6 +923,7 @@ export default function HomePage() {
               n.isMainHead ? 'head' : '',
               n.id === activeId ? 'active' : '',
               n.id === hoverId  ? 'hovered' : '',
+              nodesWithDownFork.has(n.id) ? 'label-top' : '',
             ].filter(Boolean).join(' ');
             const seed = n.xs * 5 + (n.lane + 3) * 7 + (isSource ? 1 : 0);
             const showDeadTag = n.status === 'DEAD' && n.id === n.branchLeafId;
@@ -902,10 +955,12 @@ export default function HomePage() {
           })}
 
           {pluses.map(p => {
+            const isFork = p.kind === 'fork-main' || p.kind === 'fork-branch';
+            const forkDir: 'up' | 'down' = (p.subLane ?? 0) >= 0 ? 'down' : 'up';
             const cls = ['node', 'plus', 'kind-' + p.kind,
               p.id === hoverId ? 'hovered' : ''].filter(Boolean).join(' ');
-            const label = p.kind === 'extend-main' ? 'EXTEND MAIN'
-                        : p.kind === 'fork-main'   ? 'FORK'
+            const label = p.kind === 'extend-main'                    ? 'EXTEND MAIN'
+                        : isFork ? 'FORK'
                         : 'EXTEND';
             return (
               <div key={p.id} className={cls}
@@ -919,7 +974,7 @@ export default function HomePage() {
                      setAddError(null);
                      setAddingPlus(p);
                    }}>
-                <div className="node-shape"><PlusSign /></div>
+                <div className="node-shape">{isFork ? <ForkArrow dir={forkDir} /> : <PlusSign />}</div>
                 <div className="index-label"><span className="ord">{label}</span></div>
               </div>
             );
@@ -981,7 +1036,7 @@ export default function HomePage() {
         {/* Hovercard: plus node */}
         {focusNode && focusIsPlus && (() => {
           const pn = focusNode as PlusNode;
-          const isFork = pn.kind === 'fork-main';
+          const isFork = pn.kind === 'fork-main' || pn.kind === 'fork-branch';
           const isExtendMain = pn.kind === 'extend-main';
           const klass = 'hovercard show plus-card ' + (cardBelow ? 'below' : '');
           const parentNode = byIdDeco.get(pn.parent);
@@ -1001,7 +1056,7 @@ export default function HomePage() {
             <div className={klass} style={{ left: focusScreenX, top: cardTop }}>
               <div className="eyebrow">
                 <span className={'branch-tag ' + (isExtendMain || isFork ? 'main' : '')}>
-                  {isExtendMain ? 'Extend main' : isFork ? 'Fork from main' : 'Extend branch'}
+                  {isExtendMain ? 'Extend main' : pn.kind === 'fork-main' ? 'Fork from main' : isFork ? 'Fork from branch' : 'Extend branch'}
                 </span>
                 <span className="mono">OPEN</span>
               </div>

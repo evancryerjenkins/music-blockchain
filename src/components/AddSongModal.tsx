@@ -16,7 +16,7 @@ interface RawNode {
 interface PlusNode {
   id: string;
   parent: string;
-  kind: 'extend-main' | 'fork-main' | 'extend-branch';
+  kind: 'extend-main' | 'fork-main' | 'extend-branch' | 'fork-branch';
   forkLag?: number;
 }
 
@@ -77,8 +77,9 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
   }, [query]);
 
   const kindLabel =
-    plus.kind === 'extend-main' ? 'Extend main' :
-    plus.kind === 'fork-main'   ? 'Fork from main' :
+    plus.kind === 'extend-main'  ? 'Extend main' :
+    plus.kind === 'fork-main'    ? 'Fork from main' :
+    plus.kind === 'fork-branch'  ? 'Fork from branch' :
     'Extend branch';
 
   const getSimilarity = (track: ItunesTrack & { year: number | null }) =>
@@ -186,7 +187,7 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
           <div className="actions">
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" disabled={!canAdd} onClick={handleAdd}>
-              {plus.kind === 'extend-main' ? 'Add to main' : plus.kind === 'fork-main' ? 'Fork from main' : 'Add to branch'}
+              {plus.kind === 'extend-main' ? 'Add to main' : (plus.kind === 'fork-main' || plus.kind === 'fork-branch') ? 'Fork here' : 'Add to branch'}
             </button>
           </div>
         </div>
