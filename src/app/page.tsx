@@ -698,17 +698,9 @@ export default function HomePage() {
   }, [decorated, SVG_W, SVG_H, viewportW, viewportH]); // eslint-disable-line
 
   /* Selection / hover */
-  const firstNodeId = decorated.length > 0 ? decorated[0].id : null;
-  const [activeId, setActiveId] = useState<string | null>(null);
+const [activeId, setActiveId] = useState<string | null>(null);
   const [hoverId,  setHoverId]  = useState<string | null>(null);
 
-  const activeInitRef = useRef(false);
-  useEffect(() => {
-    if (!activeInitRef.current && firstNodeId) {
-      activeInitRef.current = true;
-      setActiveId(firstNodeId);
-    }
-  }, [firstNodeId]);
 
   /* Keyboard nav on main path */
   useEffect(() => {
