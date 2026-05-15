@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ItunesTrack } from '@/lib/types';
+import { rateLimit } from '@/lib/rateLimit';
+
+function getIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+}
 
 export async function GET(req: NextRequest) {
+  // 30 searches per minute per IP
+  if (!rateLimit(getIp(req), 30, 60_000)) {
+    return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
+  }
+
   const term = req.nextUrl.searchParams.get('term');
   if (!term || term.trim().length < 2) {
+    return NextResponse.json({ results: [] });
+  }
+  if (term.length > 200) {
     return NextResponse.json({ results: [] });
   }
 
   try {
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=12&lang=en_us`;
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) });
     const data = await res.json();
 
     const results: ItunesTrack[] = (data.results || []).map((r: Record<string, unknown>) => ({
@@ -24,7 +37,8 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({ results });
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/search]', err);
     return NextResponse.json({ error: 'Search failed' }, { status: 500 });
   }
 }
