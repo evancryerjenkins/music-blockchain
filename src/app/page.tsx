@@ -1212,12 +1212,45 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
       {/* Bottom chrome */}
       <div className="chrome-bottom">
-        <div className="legend">
-          <span className="key"><span className="sq"></span> source</span>
-          <span className="key"><span className="ci-main"></span> main</span>
-          <span className="key"><span style={{ width: 8, height: 8, borderRadius: '50%', border: '1px solid var(--ink)', display: 'inline-block' }}></span> alive</span>
-          <span className="key"><span className="ci-dead"></span> dead</span>
-          <span className="key"><span className="pl"></span> extend</span>
+        <div className="legend-col">
+          {ana && (() => {
+            const head = byIdDeco.get(ana.mainHead.id);
+            if (!head) return null;
+            const q = encodeURIComponent(`${head.t} ${head.a}`);
+            return (
+              <div className="head-info">
+                <span className="head-label">HEAD</span>
+                <span className="head-song">{head.t}</span>
+                <span className="head-artist">{head.a}</span>
+                <div className="head-links">
+                  <a href={`https://www.youtube.com/results?search_query=${q}`} target="_blank" rel="noreferrer" className="head-btn yt">
+                    <svg width="14" height="10" viewBox="0 0 14 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="14" height="10" rx="2" fill="currentColor"/>
+                      <polygon points="5.5,2.5 5.5,7.5 10,5" fill="white"/>
+                    </svg>
+                    YouTube
+                  </a>
+                  <a href={`https://open.spotify.com/search/${q}`} target="_blank" rel="noreferrer" className="head-btn sp">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="6" cy="6" r="6" fill="currentColor"/>
+                      <path d="M3 4.5C4.8 3.9 7.5 4.1 9 5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                      <path d="M3.3 6.2C4.9 5.7 7.2 5.9 8.5 6.7" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                      <path d="M3.6 7.9C4.9 7.5 6.8 7.6 7.9 8.2" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                    </svg>
+                    Spotify
+                  </a>
+                </div>
+              </div>
+            );
+          })()}
+          <div className="legend">
+            <span className="key"><span className="sq"></span> source</span>
+            <span className="key"><span className="ci-main"></span> main</span>
+            <span className="key"><span style={{ width: 8, height: 8, borderRadius: '50%', border: '1px solid var(--ink)', display: 'inline-block' }}></span> alive</span>
+            <span className="key"><span className="ci-dead"></span> dead</span>
+            <span className="key"><span className="pl"></span> extend</span>
+            <span className="key"><span className="pk-fork"></span> fork</span>
+          </div>
         </div>
 
         <div className="minitree"><MiniTree /></div>
