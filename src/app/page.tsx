@@ -702,9 +702,13 @@ export default function HomePage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hoverId,  setHoverId]  = useState<string | null>(null);
 
+  const activeInitRef = useRef(false);
   useEffect(() => {
-    if (!activeId && firstNodeId) setActiveId(firstNodeId);
-  }, [firstNodeId, activeId]);
+    if (!activeInitRef.current && firstNodeId) {
+      activeInitRef.current = true;
+      setActiveId(firstNodeId);
+    }
+  }, [firstNodeId]);
 
   /* Keyboard nav on main path */
   useEffect(() => {
@@ -789,7 +793,7 @@ export default function HomePage() {
 
   /* Hover card focus */
   const allNodes = [...decorated, ...pluses];
-  const focusId     = hoverId;
+  const focusId     = hoverId ?? activeId;
   const readoutId   = hoverId ?? activeId;
   const focusNode   = allNodes.find(n => n.id === focusId);
   const readoutNode = allNodes.find(n => n.id === readoutId);
@@ -974,7 +978,7 @@ export default function HomePage() {
         <span>click <span className="kbd">+</span> at any tip to extend</span>
       </div>
 
-      <div className="canvas" ref={canvasRef}>
+      <div className="canvas" ref={canvasRef} onClick={() => setActiveId(null)}>
         <div className="spine" ref={spineRef}
              style={{ width: SVG_W, height: SVG_H, transformOrigin: '0 0', transform: `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${zoomRef.current})` }}>
 
