@@ -29,11 +29,14 @@ interface AddResult {
 interface Props {
   plus: PlusNode;
   parent: RawNode;
+  ancestorSongs: { t: string; a: string }[];
   onClose: () => void;
   onAdd: (result: AddResult) => void;
 }
 
-export default function AddSongModal({ plus, parent, onClose, onAdd }: Props) {
+const norm = (s: string) => s.toLowerCase().trim();
+
+export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onAdd }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<(ItunesTrack & { year: number | null })[]>([]);
   const [searching, setSearching] = useState(false);
@@ -139,7 +142,10 @@ export default function AddSongModal({ plus, parent, onClose, onAdd }: Props) {
 
           {results.map(track => {
             const sim = getSimilarity(track);
-            const pass = sim.matches;
+            const inChain = ancestorSongs.some(
+              s => norm(s.t) === norm(track.trackName) && norm(s.a) === norm(track.artistName)
+            );
+            const pass = sim.matches && !inChain;
             const isChosen = selected?.trackId === track.trackId;
             const cls = 'result ' + (pass ? 'pass ' : 'fail ') + (isChosen ? 'selected' : '');
             return (
@@ -156,7 +162,7 @@ export default function AddSongModal({ plus, parent, onClose, onAdd }: Props) {
                   <span className="t">{track.trackName}</span>
                   <span className="a">{track.artistName} · {track.primaryGenreName} · {track.year ?? '—'}</span>
                 </span>
-                <span className="badge">{pass ? 'link' : 'no link'}</span>
+                <span className="badge">{inChain ? 'in chain' : pass ? 'link' : 'no link'}</span>
               </button>
             );
           })}

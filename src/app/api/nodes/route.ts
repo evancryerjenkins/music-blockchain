@@ -63,6 +63,20 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
+  // Reject if the song already appears in this chain (ancestor path)
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const norm = (s: string) => s.toLowerCase().trim();
+  const candidateKey = `${norm(song_title)}|||${norm(artist)}`;
+  let ancestor: MusicNode | undefined = parent;
+  let steps = 0;
+  while (ancestor && steps < 50) {
+    if (`${norm(ancestor.song_title)}|||${norm(ancestor.artist)}` === candidateKey) {
+      return NextResponse.json({ error: 'This song already appears in this chain.' }, { status: 400 });
+    }
+    ancestor = ancestor.parent_id ? nodeMap.get(ancestor.parent_id) : undefined;
+    steps++;
+  }
+
   const { data, error } = await supabase
     .from('music_nodes')
     .insert({

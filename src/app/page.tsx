@@ -241,7 +241,8 @@ function generatePluses(raw: RawNode[], ana: Analysis, laneOf: Map<string, numbe
     const childLanes = (kidsOf.get(mid) || []).map(c => laneOf.get(c) ?? 0);
     const hasUp = childLanes.some(l => l < 0);
     const hasDn = childLanes.some(l => l > 0);
-    const side = hasUp && !hasDn ? 1 : hasDn && !hasUp ? -1 : lag % 2 === 0 ? 1 : -1;
+    if (hasUp && hasDn) continue;
+    const side = hasUp ? 1 : hasDn ? -1 : lag % 2 === 0 ? 1 : -1;
     pluses.push({
       id: `+fork_${mid}`,
       parent: mid,
@@ -398,6 +399,19 @@ export default function HomePage() {
   const ana     = useMemo(() => rawNodes.length > 0 ? analyze(rawNodes) : null, [rawNodes]);
   const laneOf  = useMemo(() => ana ? assignLanes(rawNodes, ana) : new Map<string, number>(), [ana, rawNodes]);
   const pluses  = useMemo(() => ana ? generatePluses(rawNodes, ana, laneOf) : [], [ana, laneOf, rawNodes]);
+
+  const ancestorSongs = useMemo((): { t: string; a: string }[] => {
+    if (!ana || !addingPlus?.parent) return [];
+    const songs: { t: string; a: string }[] = [];
+    let cur = ana.byId.get(addingPlus.parent);
+    let steps = 0;
+    while (cur && steps < 50) {
+      songs.push({ t: cur.t, a: cur.a });
+      cur = cur.parent ? ana.byId.get(cur.parent) : undefined;
+      steps++;
+    }
+    return songs;
+  }, [ana, addingPlus]);
 
   const decorated = useMemo((): DecoratedNode[] => {
     if (!ana) return [];
@@ -1063,6 +1077,7 @@ export default function HomePage() {
         <AddSongModal
           plus={addingPlus}
           parent={byIdDeco.get(addingPlus.parent)!}
+          ancestorSongs={ancestorSongs}
           onClose={() => { setAddingPlus(null); setAddError(null); }}
           onAdd={handleAdd}
         />
