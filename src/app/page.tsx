@@ -485,6 +485,7 @@ export default function HomePage() {
   useEffect(() => {
     const el = canvasRef.current; if (!el) return;
     const onDown = (e: PointerEvent) => {
+      if ((e.target as Element).closest?.('.node')) return;
       cancelAnim(); cancelInertia();
       el.setPointerCapture(e.pointerId);
       drag.current = { active: true, startX: e.clientX, startY: e.clientY, startPanX: panRef.current.x, startPanY: panRef.current.y, lastX: e.clientX, lastY: e.clientY, lastT: performance.now(), velX: 0, velY: 0 };
