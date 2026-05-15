@@ -114,14 +114,21 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
               <span>after <b style={{ color: 'var(--ink)' }}>{parent.id.slice(0, 8).toUpperCase()}</b></span>
             </div>
             <h2>Add a song to the chain</h2>
-            <div className="sub">Continuing from <b>{parent.t}</b> by {parent.a}.</div>
           </div>
           <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
         </div>
 
-        <div className="modal-rules">
-          <span className="lbl">Rule</span>
-          Must share a <b>title word</b>, <b>artist</b>, <b>genre</b>, or <b>release year</b> with the parent.
+        <div className="modal-parent-card">
+          <div className="modal-parent-label">Match with</div>
+          <div className="modal-parent-info">
+            <span className="modal-parent-title">{parent.t}</span>
+            <span className="modal-parent-meta">
+              <span>{parent.a}</span>
+              {parent.g && <><span className="sep">·</span><span>{parent.g}</span></>}
+              {parent.y && <><span className="sep">·</span><span>{parent.y}</span></>}
+            </span>
+          </div>
+          <div className="modal-parent-rule">Must share a <b>title word</b>, <b>artist</b>, <b>genre</b>, or <b>year</b></div>
         </div>
 
         <div className="modal-name">

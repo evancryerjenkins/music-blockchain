@@ -436,19 +436,33 @@ html, body {
 }
 .modal-close:hover { color: var(--ink); }
 
-.modal-rules {
-  padding: 12px 24px;
-  font-size: 11px; color: var(--ink);
-  background: var(--accent-soft);
+.modal-parent-card {
+  padding: 14px 24px;
   border-bottom: 1px solid var(--rule);
-  letter-spacing: 0.01em; line-height: 1.5;
+  background: var(--accent-soft);
 }
-.modal-rules b { font-weight: 500; }
-.modal-rules .lbl {
+.modal-parent-label {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--muted); display: block; margin-bottom: 3px;
+  color: var(--muted); margin-bottom: 6px;
 }
+.modal-parent-info {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.modal-parent-title {
+  font-size: 14px; font-weight: 500; color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.modal-parent-meta {
+  font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px;
+}
+.modal-parent-meta .sep { opacity: 0.5; }
+.modal-parent-rule {
+  font-size: 10px; color: var(--muted); margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--rule);
+  letter-spacing: 0.01em;
+}
+.modal-parent-rule b { font-weight: 500; color: var(--ink); }
 
 .modal-name {
   padding: 10px 24px;
