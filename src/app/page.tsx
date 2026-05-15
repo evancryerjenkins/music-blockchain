@@ -568,7 +568,7 @@ export default function HomePage() {
     panRef.current.y = cy;
     if (spineRef.current) {
       spineRef.current.style.transformOrigin = '0 0';
-      spineRef.current.style.transform = `translate3d(${cx}px, ${cy}px, 0) scale(${zoomRef.current})`;
+      spineRef.current.style.transform = `translate3d(${Math.round(cx)}px, ${Math.round(cy)}px, 0) scale(${zoomRef.current})`;
     }
     force(t => t + 1);
   }, [clampX, clampY]);
@@ -581,7 +581,7 @@ export default function HomePage() {
     panRef.current.y = pivotY - (pivotY - panRef.current.y) * ratio;
     if (spineRef.current) {
       spineRef.current.style.transformOrigin = '0 0';
-      spineRef.current.style.transform = `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${clamped})`;
+      spineRef.current.style.transform = `translate3d(${Math.round(panRef.current.x)}px, ${Math.round(panRef.current.y)}px, 0) scale(${clamped})`;
     }
     setZoom(clamped);
     force(t => t + 1);
@@ -738,7 +738,7 @@ export default function HomePage() {
     panRef.current.y = panY;
     if (spineRef.current) {
       spineRef.current.style.transformOrigin = '0 0';
-      spineRef.current.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${newZ})`;
+      spineRef.current.style.transform = `translate3d(${Math.round(panX)}px, ${Math.round(panY)}px, 0) scale(${newZ})`;
     }
   }, [decorated, SVG_W, SVG_H, viewportW, viewportH]); // eslint-disable-line
 
@@ -1019,7 +1019,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
       <div className="canvas" ref={canvasRef} onClick={() => setActiveId(null)}>
         <div className="spine" ref={spineRef}
-             style={{ width: SVG_W, height: SVG_H, transformOrigin: '0 0', transform: `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${zoomRef.current})` }}>
+             style={{ width: SVG_W, height: SVG_H, transformOrigin: '0 0', transform: `translate3d(${Math.round(panRef.current.x)}px, ${Math.round(panRef.current.y)}px, 0) scale(${zoomRef.current})` }}>
 
           {ana && (
             <div className="main-rail-label"
