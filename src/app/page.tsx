@@ -178,42 +178,80 @@ function analyze(raw: RawNode[]): Analysis {
 /* ------------------------------------------------------------------ */
 
 function assignLanes(raw: RawNode[], ana: Analysis): Map<string, number> {
-  const { mainSet, byId, branchInfo, depth } = ana;
+  const { mainSet, kidsOf, depth, mainHeadDepth } = ana;
   const laneOf = new Map<string, number>();
   raw.forEach(n => { if (mainSet.has(n.id)) laneOf.set(n.id, 0); });
 
-  const forkSideCounter = new Map<string, number>();
-  const branches: { leafId: string; side: number; xRange: [number, number]; chain: string[] }[] = [];
+  // Primary branches: direct non-main children of main nodes.
+  // These are the true fork points. Within-branch forks (non-main nodes with
+  // multiple children) are handled recursively inside assignSubtree.
+  const primaryRoots = raw.filter(n => !mainSet.has(n.id) && !!n.parent && mainSet.has(n.parent));
 
-  branchInfo.forEach((info, leafId) => {
-    const forkId = info.forkPoint.id;
-    const count = forkSideCounter.get(forkId) ?? 0;
-    forkSideCounter.set(forkId, count + 1);
-    // Alternate sides: first branch below (+1), second above (-1), etc.
-    const side = count % 2 === 0 ? 1 : -1;
-    const leafDepth = depth.get(leafId)!;
-    const xRange: [number, number] = [depth.get(info.forkPoint.id)! + 1, info.status === 'ALIVE' ? leafDepth + 1 : leafDepth];
-    branches.push({ leafId, side, xRange, chain: info.chain });
+  // Assign alternating sides per fork point, in raw (insertion) order.
+  const forkSideCounter = new Map<string, number>();
+  const rootSide = new Map<string, number>();
+  primaryRoots.forEach(n => {
+    const count = forkSideCounter.get(n.parent!) ?? 0;
+    forkSideCounter.set(n.parent!, count + 1);
+    rootSide.set(n.id, count % 2 === 0 ? 1 : -1);
   });
 
-  branches.sort((a, b) => (a.side - b.side) || (b.xRange[0] - a.xRange[0]));
+  // Deepest leaf depth in a sub-tree (for occupancy range).
+  const maxLeafDepth = (id: string): number => {
+    const kids = kidsOf.get(id);
+    if (!kids || !kids.length) return depth.get(id)!;
+    return Math.max(...kids.map(maxLeafDepth));
+  };
+
+  // Sort for occupancy: side=-1 first, then most-recently-forked first within side.
+  const sortedRoots = [...primaryRoots].sort((a, b) => {
+    const sa = rootSide.get(a.id)!, sb = rootSide.get(b.id)!;
+    if (sa !== sb) return sa - sb;
+    return depth.get(b.id)! - depth.get(a.id)!;
+  });
 
   const occupancy: Record<string, [number, number][][]> = { '-1': [], '1': [] };
-  branches.forEach(b => {
-    const key = b.side < 0 ? '-1' : '1';
+  const rootSlot = new Map<string, number>();
+
+  sortedRoots.forEach(n => {
+    const side = rootSide.get(n.id)!;
+    const key = side < 0 ? '-1' : '1';
+    const forkLag = mainHeadDepth - (depth.get(n.id)! - 1);
+    const isAlive = forkLag < DEAD_LAG;
+    const mld = maxLeafDepth(n.id);
+    const xRange: [number, number] = [depth.get(n.id)!, isAlive ? mld + 1 : mld];
+
     let slot = 1;
     while (true) {
       const taken = occupancy[key][slot - 1] || [];
-      const overlap = taken.some(([x0, x1]) => !(b.xRange[1] + 0.4 < x0 || b.xRange[0] - 0.4 > x1));
+      const overlap = taken.some(([x0, x1]) => !(xRange[1] + 0.4 < x0 || xRange[0] - 0.4 > x1));
       if (!overlap) {
         if (!occupancy[key][slot - 1]) occupancy[key][slot - 1] = [];
-        occupancy[key][slot - 1].push(b.xRange);
+        occupancy[key][slot - 1].push(xRange);
         break;
       }
       slot++;
     }
-    const lane = (b.side < 0 ? -1 : 1) * slot;
-    b.chain.forEach(id => laneOf.set(id, lane));
+    rootSlot.set(n.id, slot);
+  });
+
+  // Assign lanes to a primary branch's entire sub-tree.
+  // First child of any within-branch fork inherits the parent lane;
+  // subsequent children step one slot further from main on the same side.
+  const assignSubtree = (nodeId: string, lane: number, side: number, nextSlot: number) => {
+    laneOf.set(nodeId, lane);
+    const kids = (kidsOf.get(nodeId) ?? []).filter(k => !mainSet.has(k));
+    kids.forEach((kid, i) => {
+      const childLane = i === 0 ? lane : side * nextSlot;
+      const childNext  = i === 0 ? nextSlot : nextSlot + 1;
+      assignSubtree(kid, childLane, side, childNext);
+    });
+  };
+
+  primaryRoots.forEach(n => {
+    const side = rootSide.get(n.id)!;
+    const slot = rootSlot.get(n.id)!;
+    assignSubtree(n.id, side * slot, side, slot + 1);
   });
 
   return laneOf;
@@ -261,6 +299,7 @@ function generatePluses(raw: RawNode[], ana: Analysis, laneOf: Map<string, numbe
     });
   }
 
+  const usedForkBranchIds = new Set<string>();
   branchInfo.forEach((info, leafId) => {
     if (info.status === 'DEAD') return;
     const leafDepth = depth.get(leafId)!;
@@ -280,6 +319,8 @@ function generatePluses(raw: RawNode[], ana: Analysis, laneOf: Map<string, numbe
       if (chainIdx < 0) break;
       const nodeId = info.chain[chainIdx];
       if ((kidsOf.get(nodeId) ?? []).length >= 3) continue;
+      if (usedForkBranchIds.has(nodeId)) continue;
+      usedForkBranchIds.add(nodeId);
       const nodeLane = laneOf.get(nodeId) ?? 0;
       const nodeDepth = depth.get(nodeId)!;
       pluses.push({
