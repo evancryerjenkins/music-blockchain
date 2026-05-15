@@ -533,6 +533,7 @@ html, body {
 .result.selected { background: var(--accent-soft); }
 .result.fail { opacity: 0.55; cursor: not-allowed; }
 .result.fail:hover { background: transparent; }
+.result.fail .result-links { pointer-events: none; }
 .result .art {
   width: 40px; height: 40px;
   flex-shrink: 0;
@@ -570,6 +571,13 @@ html, body {
   padding: 3px 6px;
   border: 1px solid var(--rule);
   color: var(--muted);
+}
+.result .result-links {
+  flex-shrink: 0;
+  display: flex; gap: 4px; align-items: center;
+}
+.result .result-links .head-btn {
+  padding: 4px 6px;
 }
 .result.pass .badge {
   border-color: var(--accent); color: var(--accent);

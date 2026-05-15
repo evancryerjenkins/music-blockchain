@@ -172,12 +172,16 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
             const pass = sim.matches && !inChain;
             const isChosen = selected?.trackId === track.trackId;
             const cls = 'result ' + (pass ? 'pass ' : 'fail ') + (isChosen ? 'selected' : '');
+            const q = encodeURIComponent(`${track.trackName} ${track.artistName}`);
             return (
-              <button
+              <div
                 key={track.trackId}
                 className={cls}
-                disabled={!pass}
-                onClick={() => setSelected(isChosen ? null : track)}
+                role="button"
+                tabIndex={pass ? 0 : -1}
+                aria-disabled={!pass}
+                onClick={() => { if (pass) setSelected(isChosen ? null : track); }}
+                onKeyDown={e => { if (pass && (e.key === 'Enter' || e.key === ' ')) setSelected(isChosen ? null : track); }}
               >
                 {track.artworkUrl100
                   ? <span className="art"><img src={track.artworkUrl100} alt="" /></span>
@@ -186,8 +190,24 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
                   <span className="t">{track.trackName}</span>
                   <span className="a">{track.artistName} · {track.primaryGenreName} · {track.year ?? '—'}</span>
                 </span>
+                <span className="result-links" onClick={e => e.stopPropagation()}>
+                  <a href={`https://www.youtube.com/results?search_query=${q}`} target="_blank" rel="noreferrer" className="head-btn yt" tabIndex={pass ? 0 : -1}>
+                    <svg width="14" height="10" viewBox="0 0 14 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="14" height="10" rx="2" fill="currentColor"/>
+                      <polygon points="5.5,2.5 5.5,7.5 10,5" fill="white"/>
+                    </svg>
+                  </a>
+                  <a href={`https://open.spotify.com/search/${q}`} target="_blank" rel="noreferrer" className="head-btn sp" tabIndex={pass ? 0 : -1}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="6" cy="6" r="6" fill="currentColor"/>
+                      <path d="M3 4.5C4.8 3.9 7.5 4.1 9 5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                      <path d="M3.3 6.2C4.9 5.7 7.2 5.9 8.5 6.7" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                      <path d="M3.6 7.9C4.9 7.5 6.8 7.6 7.9 8.2" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                    </svg>
+                  </a>
+                </span>
                 <span className="badge">{inChain ? 'in chain' : pass ? 'link' : 'no link'}</span>
-              </button>
+              </div>
             );
           })}
         </div>
