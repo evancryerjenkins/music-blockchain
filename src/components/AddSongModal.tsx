@@ -24,6 +24,7 @@ interface AddResult {
   track: ItunesTrack & { year: number | null };
   reasons: SimilarityReason[];
   link: SimilarityReason;
+  addedBy: string;
 }
 
 interface Props {
@@ -42,10 +43,17 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<(ItunesTrack & { year: number | null }) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState(() => {
+    try { return localStorage.getItem('music_blockchain_username') ?? ''; } catch { return ''; }
+  });
   const inputRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (name.trim()) inputRef.current?.focus();
+    else nameRef.current?.focus();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -86,11 +94,13 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
     checkSimilarity(parent.t, parent.a, parent.g || null, parent.y, track.trackName, track.artistName, track.primaryGenreName || null, track.year);
 
   const similarity = selected ? getSimilarity(selected) : null;
-  const canAdd = !!selected && (similarity?.matches ?? false);
+  const canAdd = !!selected && (similarity?.matches ?? false) && name.trim().length > 0;
 
   function handleAdd() {
     if (!canAdd || !selected || !similarity) return;
-    onAdd({ track: selected, reasons: similarity.reasons, link: similarity.reasons[0] });
+    const trimmedName = name.trim();
+    try { localStorage.setItem('music_blockchain_username', trimmedName); } catch {}
+    onAdd({ track: selected, reasons: similarity.reasons, link: similarity.reasons[0], addedBy: trimmedName });
   }
 
   return (
@@ -112,6 +122,19 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
         <div className="modal-rules">
           <span className="lbl">Rule</span>
           Must share a <b>title word</b>, <b>artist</b>, <b>genre</b>, or <b>release year</b> with the parent.
+        </div>
+
+        <div className="modal-name">
+          <label htmlFor="contributor-name">Your name</label>
+          <input
+            ref={nameRef}
+            id="contributor-name"
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter your name…"
+            maxLength={100}
+          />
         </div>
 
         <div className="modal-search">

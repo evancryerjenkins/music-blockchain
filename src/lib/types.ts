@@ -9,6 +9,7 @@ export interface MusicNode {
   itunes_url: string | null;
   preview_url: string | null;
   depth: number;
+  added_by: string | null;
   created_at: string;
 }
 

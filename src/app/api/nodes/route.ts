@@ -17,7 +17,7 @@ function isAllowedUrl(url: unknown): boolean {
 }
 
 function validateBody(body: Record<string, unknown>): string | null {
-  const { song_title, artist, genre, year, album_art, itunes_url, preview_url } = body;
+  const { song_title, artist, genre, year, album_art, itunes_url, preview_url, added_by } = body;
   if (typeof song_title !== 'string' || song_title.trim().length === 0 || song_title.length > 500)
     return 'song_title must be a non-empty string under 500 characters.';
   if (typeof artist !== 'string' || artist.trim().length === 0 || artist.length > 500)
@@ -29,6 +29,8 @@ function validateBody(body: Record<string, unknown>): string | null {
   if (!isAllowedUrl(album_art))   return 'album_art must be an Apple/iTunes URL.';
   if (!isAllowedUrl(itunes_url))  return 'itunes_url must be an Apple/iTunes URL.';
   if (!isAllowedUrl(preview_url)) return 'preview_url must be an Apple/iTunes URL.';
+  if (typeof added_by !== 'string' || added_by.trim().length === 0 || added_by.length > 100)
+    return 'added_by must be a non-empty name under 100 characters.';
   return null;
 }
 
@@ -74,10 +76,11 @@ export async function POST(req: NextRequest) {
   const validationError = validateBody(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
-  const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url } = body as {
+  const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url, added_by } = body as {
     parent_id?: string; song_title: string; artist: string;
     genre?: string | null; year?: number | null;
     album_art?: string | null; itunes_url?: string | null; preview_url?: string | null;
+    added_by: string;
   };
 
   const { data: allNodes, error: fetchError } = await supabase
@@ -98,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase
       .from('music_nodes')
-      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null })
+      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: added_by.trim() })
       .select()
       .single();
     if (error) {
@@ -149,6 +152,7 @@ export async function POST(req: NextRequest) {
       preview_url,
       parent_id,
       depth: parent.depth + 1,
+      added_by: added_by.trim(),
     })
     .select()
     .single();

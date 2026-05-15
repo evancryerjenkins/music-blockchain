@@ -20,6 +20,7 @@ interface RawNode {
   y: number | null;
   link: { kind: string; value: string } | null;
   cover: string | null;
+  addedBy: string | null;
 }
 
 interface PlusNode {
@@ -102,6 +103,7 @@ function toRawNodes(apiNodes: MusicNode[]): RawNode[] {
       y: n.year,
       link,
       cover: n.album_art,
+      addedBy: n.added_by,
     };
   });
 }
@@ -764,7 +766,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
   }, [activeId, ana, byIdDeco, centreOn]);
 
   /* Add song handler */
-  async function handleAdd({ track, reasons, link }: { track: ItunesTrack & { year: number | null }; reasons: SimilarityReason[]; link: SimilarityReason }) {
+  async function handleAdd({ track, addedBy }: { track: ItunesTrack & { year: number | null }; reasons: SimilarityReason[]; link: SimilarityReason; addedBy: string }) {
     if (!addingPlus || !ana) return;
     const plus = addingPlus;
 
@@ -788,6 +790,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           album_art: track.artworkUrl100 || null,
           itunes_url: track.trackViewUrl || null,
           preview_url: track.previewUrl || null,
+          added_by: addedBy,
         }),
       });
       const data = await res.json();
@@ -941,7 +944,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <p>Be the first to plant a seed. Pick any song to start the music blockchain.</p>
           <button className="btn-seed" onClick={() => {
             const seedPlus: PlusNode = { id: '+seed', parent: '', xs: 0, lane: 0, kind: 'extend-main' };
-            const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null };
+            const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null, addedBy: null };
             setAddingPlus(seedPlus);
           }}>
             Plant the Seed
@@ -950,7 +953,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
         {addingPlus && (
           <SeedModal
             onClose={() => setAddingPlus(null)}
-            onAdd={async (track) => {
+            onAdd={async (track, addedBy) => {
               setSubmitting(true);
               try {
                 const res = await fetch('/api/nodes', {
@@ -965,6 +968,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                     album_art: track.artworkUrl100 || null,
                     itunes_url: track.trackViewUrl || null,
                     preview_url: track.previewUrl || null,
+                    added_by: addedBy,
                   }),
                 });
                 const data = await res.json();
@@ -1123,6 +1127,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                 <span><b>Genre</b>&nbsp; {dn.g || '—'}</span>
                 <span><b>Block</b>&nbsp; {dn.id.slice(0, 8).toUpperCase()}</span>
                 <span><b>Depth</b>&nbsp; {dn.xs}</span>
+                {dn.addedBy && <span><b>Added by</b>&nbsp; {dn.addedBy}</span>}
               </div>
 
               {focusParent && dn.link && dn.status !== 'DEAD' && (
@@ -1325,16 +1330,23 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
 function SeedModal({ onClose, onAdd }: {
   onClose: () => void;
-  onAdd: (track: (ItunesTrack & { year: number | null })) => void;
+  onAdd: (track: (ItunesTrack & { year: number | null }), addedBy: string) => void;
 }) {
   const [query, setQuery]       = useState('');
   const [results, setResults]   = useState<(ItunesTrack & { year: number | null })[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<(ItunesTrack & { year: number | null }) | null>(null);
+  const [name, setName] = useState(() => {
+    try { return localStorage.getItem('music_blockchain_username') ?? ''; } catch { return ''; }
+  });
   const inputRef = useRef<HTMLInputElement>(null);
+  const nameRef  = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (name.trim()) inputRef.current?.focus();
+    else nameRef.current?.focus();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -1371,6 +1383,18 @@ function SeedModal({ onClose, onAdd }: {
           </div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
+        <div className="modal-name">
+          <label htmlFor="seed-contributor-name">Your name</label>
+          <input
+            ref={nameRef}
+            id="seed-contributor-name"
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter your name…"
+            maxLength={100}
+          />
+        </div>
         <div className="modal-search">
           <span className="icon">
             <svg viewBox="0 0 14 14" fill="none" width="14" height="14">
@@ -1406,7 +1430,12 @@ function SeedModal({ onClose, onAdd }: {
         <div className="modal-foot">
           <div className="actions">
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!selected} onClick={() => selected && onAdd(selected)}>
+            <button className="btn primary" disabled={!selected || !name.trim()} onClick={() => {
+              if (!selected || !name.trim()) return;
+              const trimmedName = name.trim();
+              try { localStorage.setItem('music_blockchain_username', trimmedName); } catch {}
+              onAdd(selected, trimmedName);
+            }}>
               Plant this Song
             </button>
           </div>

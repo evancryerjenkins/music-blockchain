@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS music_nodes (
   itunes_url  TEXT,
   preview_url TEXT,
   depth       INTEGER NOT NULL DEFAULT 0,
+  added_by    TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -35,7 +36,8 @@ CREATE POLICY "Public insert" ON music_nodes FOR INSERT WITH CHECK (
   (genre       IS NULL OR char_length(genre)       <= 100) AND
   (album_art   IS NULL OR char_length(album_art)   <= 500) AND
   (itunes_url  IS NULL OR char_length(itunes_url)  <= 500) AND
-  (preview_url IS NULL OR char_length(preview_url) <= 500)
+  (preview_url IS NULL OR char_length(preview_url) <= 500) AND
+  (added_by    IS NULL OR char_length(added_by)    <= 100)
 );
 
 -- Enable realtime
