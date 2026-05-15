@@ -628,6 +628,7 @@ export default function HomePage() {
 
     const onDown = (e: PointerEvent) => {
       if ((e.target as Element).closest?.('.node')) return;
+      if ((e.target as Element).closest?.('.hovercard')) return;
       cancelAnim(); cancelInertia();
       el.setPointerCapture(e.pointerId);
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
