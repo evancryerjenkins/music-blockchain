@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { MusicNode, ItunesTrack, SimilarityReason } from '@/lib/types';
 import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
@@ -546,22 +546,42 @@ export default function HomePage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const panRef    = useRef({ x: 0, y: 0 });
   const [, force] = useState(0);
+  const zoomRef   = useRef(1);
+  const [zoom, setZoom] = useState(1);
 
-  const minPanX = viewportW * 0.18 - SVG_W;
-  const maxPanX = viewportW * 0.82 - SOURCE_OFFSET;
-  const minPanY = viewportH * 0.30 - SVG_H;
-  const maxPanY = viewportH * 0.70;
-  const initialPanY = viewportH / 2 - Y_FOR_LANE_0;
-  const clampX = useCallback((x: number) => Math.min(maxPanX, Math.max(minPanX, x)), [maxPanX, minPanX]);
-  const clampY = useCallback((y: number) => Math.min(maxPanY, Math.max(minPanY, y)), [maxPanY, minPanY]);
+  const clampX = useCallback((x: number) => {
+    const z = zoomRef.current;
+    return Math.min(viewportW * 0.82 - SOURCE_OFFSET * z, Math.max(viewportW * 0.18 - SVG_W * z, x));
+  }, [viewportW, SVG_W]);
+  const clampY = useCallback((y: number) => {
+    const z = zoomRef.current;
+    return Math.min(viewportH * 0.70, Math.max(viewportH * 0.30 - SVG_H * z, y));
+  }, [viewportH, SVG_H]);
 
   const applyPan = useCallback((x: number, y: number) => {
     const cx = clampX(x), cy = clampY(y);
     panRef.current.x = cx;
     panRef.current.y = cy;
-    if (spineRef.current) spineRef.current.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
+    if (spineRef.current) {
+      spineRef.current.style.transformOrigin = '0 0';
+      spineRef.current.style.transform = `translate3d(${cx}px, ${cy}px, 0) scale(${zoomRef.current})`;
+    }
     force(t => t + 1);
   }, [clampX, clampY]);
+
+  const applyZoom = useCallback((newZ: number, pivotX: number, pivotY: number) => {
+    const clamped = Math.min(2, Math.max(0.1, newZ));
+    const ratio = clamped / zoomRef.current;
+    zoomRef.current = clamped;
+    panRef.current.x = pivotX - (pivotX - panRef.current.x) * ratio;
+    panRef.current.y = pivotY - (pivotY - panRef.current.y) * ratio;
+    if (spineRef.current) {
+      spineRef.current.style.transformOrigin = '0 0';
+      spineRef.current.style.transform = `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${clamped})`;
+    }
+    setZoom(clamped);
+    force(t => t + 1);
+  }, []);
 
   const animRef = useRef<number | null>(null);
   const cancelAnim = () => { if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; } };
@@ -581,7 +601,7 @@ export default function HomePage() {
   }, [clampX, clampY, applyPan]);
 
   const centreOn = useCallback((node: { xs: number; lane: number; subLane?: number }) =>
-    animateTo(viewportW / 2 - xOf(node), viewportH / 2 - yOf(node)),
+    animateTo(viewportW / 2 - xOf(node) * zoomRef.current, viewportH / 2 - yOf(node) * zoomRef.current),
   [animateTo, viewportW, viewportH, xOf, yOf]); // eslint-disable-line
 
   const drag = useRef({ active: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0, lastX: 0, lastY: 0, lastT: 0, velX: 0, velY: 0 });
@@ -639,14 +659,19 @@ export default function HomePage() {
       if (e.deltaX === 0 && e.deltaY === 0) return;
       e.preventDefault();
       cancelAnim(); cancelInertia();
-      const dx = e.shiftKey ? e.deltaY : e.deltaX;
-      const dy = e.shiftKey ? 0       : e.deltaY;
-      applyPan(panRef.current.x - dx, panRef.current.y - dy * 0.6);
+      if (e.ctrlKey || e.metaKey) {
+        const rect = el.getBoundingClientRect();
+        applyZoom(zoomRef.current * (1 - e.deltaY * 0.003), e.clientX - rect.left, e.clientY - rect.top);
+      } else {
+        const dx = e.shiftKey ? e.deltaY : e.deltaX;
+        const dy = e.shiftKey ? 0       : e.deltaY;
+        applyPan(panRef.current.x - dx, panRef.current.y - dy * 0.6);
+      }
       if (!hasMoved) setHasMoved(true);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [hasMoved, applyPan]);
+  }, [hasMoved, applyPan, applyZoom]);
 
   useEffect(() => {
     const onR = () => { setViewportW(window.innerWidth); setViewportH(window.innerHeight); };
@@ -654,7 +679,23 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', onR);
   }, []);
 
-  useEffect(() => { applyPan(viewportW * 0.18 - SOURCE_OFFSET, initialPanY); }, [viewportW, viewportH]); // eslint-disable-line
+  const initialFitDone = useRef(false);
+  useLayoutEffect(() => {
+    if (decorated.length === 0 || initialFitDone.current) return;
+    initialFitDone.current = true;
+    const pad = 80;
+    const newZ = Math.min(2, Math.max(0.1, Math.min((viewportW - pad * 2) / SVG_W, (viewportH - pad * 2) / SVG_H)));
+    zoomRef.current = newZ;
+    setZoom(newZ);
+    const panX = (viewportW - SVG_W * newZ) / 2;
+    const panY = (viewportH - SVG_H * newZ) / 2;
+    panRef.current.x = panX;
+    panRef.current.y = panY;
+    if (spineRef.current) {
+      spineRef.current.style.transformOrigin = '0 0';
+      spineRef.current.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${newZ})`;
+    }
+  }, [decorated, SVG_W, SVG_H, viewportW, viewportH]); // eslint-disable-line
 
   /* Selection / hover */
   const firstNodeId = decorated.length > 0 ? decorated[0].id : null;
@@ -720,7 +761,8 @@ export default function HomePage() {
 
       setTimeout(() => {
         const depth = newNode.depth;
-        animateTo(viewportW / 2 - (SOURCE_OFFSET + depth * STEP), viewportH / 2 - (Y_FOR_LANE_0 + side * LANE));
+        const z = zoomRef.current;
+        animateTo(viewportW / 2 - (SOURCE_OFFSET + depth * STEP) * z, viewportH / 2 - (Y_FOR_LANE_0 + side * LANE) * z);
       }, 80);
     } finally {
       setSubmitting(false);
@@ -752,8 +794,8 @@ export default function HomePage() {
   const focusNode   = allNodes.find(n => n.id === focusId);
   const readoutNode = allNodes.find(n => n.id === readoutId);
   const focusIsPlus = !!(focusNode as PlusNode | undefined)?.kind;
-  const focusScreenX = focusNode ? xOf(focusNode) + panRef.current.x : 0;
-  const focusScreenY = focusNode ? yOf(focusNode as { lane: number; subLane?: number }) + panRef.current.y : 0;
+  const focusScreenX = focusNode ? xOf(focusNode) * zoomRef.current + panRef.current.x : 0;
+  const focusScreenY = focusNode ? yOf(focusNode as { lane: number; subLane?: number }) * zoomRef.current + panRef.current.y : 0;
   const focusLaneEff = ((focusNode as { lane?: number } | undefined)?.lane ?? 0) + ((focusNode as PlusNode | undefined)?.subLane ?? 0);
   const cardBelow    = focusLaneEff < 0;
   const focusIsPlus2 = focusIsPlus;
@@ -934,7 +976,7 @@ export default function HomePage() {
 
       <div className="canvas" ref={canvasRef}>
         <div className="spine" ref={spineRef}
-             style={{ width: SVG_W, height: SVG_H, transform: `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0)` }}>
+             style={{ width: SVG_W, height: SVG_H, transformOrigin: '0 0', transform: `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${zoomRef.current})` }}>
 
           {ana && (
             <div className="main-rail-label"
@@ -1148,6 +1190,20 @@ export default function HomePage() {
         </div>
 
         <div className="minitree"><MiniTree /></div>
+
+        <div className="zoom-control">
+          <span>Zoom</span>
+          <input
+            type="range" min="0.15" max="2" step="0.01"
+            value={zoom}
+            onChange={e => {
+              cancelAnim();
+              applyZoom(parseFloat(e.target.value), viewportW / 2, viewportH / 2);
+              if (!hasMoved) setHasMoved(true);
+            }}
+          />
+          <span className="mono">{Math.round(zoom * 100)}%</span>
+        </div>
 
         <div className="position-readout mono">
           <b>{(readoutNode as PlusNode | undefined)?.kind
