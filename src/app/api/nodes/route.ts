@@ -4,21 +4,13 @@ import { checkSimilarity } from '@/lib/similarity';
 import { MusicNode } from '@/lib/types';
 import { rateLimit } from '@/lib/rateLimit';
 
-const APPLE_HOSTS = new Set([
-  'itunes.apple.com',
-  'music.apple.com',
-  'is1-ssl.mzstatic.com',
-  'is2-ssl.mzstatic.com',
-  'is3-ssl.mzstatic.com',
-  'is4-ssl.mzstatic.com',
-  'is5-ssl.mzstatic.com',
-]);
-
 function isAllowedUrl(url: unknown): boolean {
   if (url === undefined || url === null) return true;
   if (typeof url !== 'string') return false;
   try {
-    return APPLE_HOSTS.has(new URL(url).hostname);
+    const { hostname, protocol } = new URL(url);
+    if (protocol !== 'https:') return false;
+    return hostname.endsWith('.apple.com') || hostname.endsWith('.mzstatic.com');
   } catch {
     return false;
   }
