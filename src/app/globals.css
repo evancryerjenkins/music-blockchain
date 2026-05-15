@@ -126,7 +126,7 @@ html, body {
   cursor: grab; user-select: none; touch-action: none;
 }
 .canvas.dragging { cursor: grabbing; }
-.spine { position: absolute; left: 0; top: 0; will-change: transform; }
+.spine { position: absolute; left: 0; top: 0; }
 
 .main-rail-label {
   position: absolute;
