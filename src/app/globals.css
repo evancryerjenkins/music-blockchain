@@ -668,6 +668,21 @@ html, body {
 .zoom-control input[type="range"]:hover::-webkit-slider-thumb { background: var(--accent); }
 .zoom-control input[type="range"]:hover::-moz-range-thumb    { background: var(--accent); }
 
+/* ----- Mobile ----- */
+@media (max-width: 640px) {
+  .chrome-bottom {
+    padding: 10px 14px 14px;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .minitree        { display: none; }
+  .position-readout { display: none; }
+  .legend-col { max-width: calc(100vw - 120px); }
+  .head-song, .head-artist { max-width: calc(100vw - 140px); }
+  .legend { gap: 10px; }
+  .zoom-control { flex-shrink: 0; }
+}
+
 /* Loading / empty states */
 .loading-state {
   position: absolute; inset: 0;
