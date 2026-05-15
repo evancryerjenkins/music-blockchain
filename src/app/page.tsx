@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } fr
 import { MusicNode, ItunesTrack, SimilarityReason } from '@/lib/types';
 import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
+import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
 
 /* ------------------------------------------------------------------ */
 /* Internal tree types                                                  */
@@ -432,6 +433,7 @@ export default function HomePage() {
   const [addingPlus, setAddingPlus] = useState<PlusNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError]   = useState<string | null>(null);
+  const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
 
   /* Fetch nodes on mount */
   const fetchNodes = useCallback(async () => {
@@ -1237,6 +1239,8 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <span style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Adding…</span>
         </div>
       )}
+
+      {showWelcome && <WelcomeScreen onDismiss={dismissWelcome} />}
     </div>
   );
 }
