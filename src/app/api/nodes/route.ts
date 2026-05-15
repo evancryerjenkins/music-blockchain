@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { checkSimilarity } from '@/lib/similarity';
 import { MusicNode } from '@/lib/types';
 import { rateLimit } from '@/lib/rateLimit';
+import { getIp } from '@/lib/getIp';
 
 function isAllowedUrl(url: unknown): boolean {
   if (url === undefined || url === null) return true;
@@ -41,9 +42,6 @@ function getSupabase() {
   );
 }
 
-function getIp(req: NextRequest): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-}
 
 export async function GET() {
   const supabase = getSupabase();
@@ -60,8 +58,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  // burst of 5, refills at 0.1/s (≈6/min steady state)
-  if (!rateLimit(getIp(req), 5, 0.1)) {
+  // 10 requests per 60 seconds per IP
+  if (!await rateLimit(getIp(req), 10, 60)) {
     return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
   }
 

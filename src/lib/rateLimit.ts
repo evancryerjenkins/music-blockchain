@@ -1,28 +1,20 @@
-interface Bucket {
-  tokens: number;
-  lastRefill: number;
-}
+import { Redis } from '@upstash/redis';
 
-const store = new Map<string, Bucket>();
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_KV_REST_API_URL!,
+  token: process.env.UPSTASH_REDIS_KV_REST_API_TOKEN!,
+});
 
-export function rateLimit(
+// Fixed-window counter using Redis INCR (atomic).
+// limit: max requests allowed in the window.
+// windowSeconds: window length in seconds.
+export async function rateLimit(
   key: string,
-  capacity: number,
-  refillRate: number,   // tokens per second
-): boolean {
-  const now = Date.now();
-  const bucket = store.get(key) ?? { tokens: capacity, lastRefill: now };
-
-  const elapsed = (now - bucket.lastRefill) / 1000;
-  bucket.tokens = Math.min(capacity, bucket.tokens + elapsed * refillRate);
-  bucket.lastRefill = now;
-
-  if (bucket.tokens < 1) {
-    store.set(key, bucket);
-    return false;
-  }
-
-  bucket.tokens -= 1;
-  store.set(key, bucket);
-  return true;
+  limit: number,
+  windowSeconds: number,
+): Promise<boolean> {
+  const redisKey = `rl:${key}`;
+  const count = await redis.incr(redisKey);
+  if (count === 1) await redis.expire(redisKey, windowSeconds);
+  return count <= limit;
 }

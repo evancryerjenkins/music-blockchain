@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ItunesTrack } from '@/lib/types';
 import { rateLimit } from '@/lib/rateLimit';
-
-function getIp(req: NextRequest): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-}
+import { getIp } from '@/lib/getIp';
 
 export async function GET(req: NextRequest) {
-  // burst of 15, refills at 0.5/s (≈30/min steady state)
-  if (!rateLimit(getIp(req), 15, 0.5)) {
+  // 30 requests per 60 seconds per IP
+  if (!await rateLimit(getIp(req), 30, 60)) {
     return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
   }
 
