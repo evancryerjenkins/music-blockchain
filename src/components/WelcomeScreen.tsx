@@ -1,185 +1,43 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-
-const TABS = ['The Chain', 'Connections', 'Branches', 'Get Started'] as const;
-type Tab = typeof TABS[number];
+import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'music-blockchain-welcomed';
 
-interface Props {
-  onDismiss: () => void;
+interface Page {
+  main: number;
+  alive: number;
+  dead: number;
+  text: string;
 }
 
-function ChainDiagram() {
-  const nodes = [
-    { label: 'Bohemian\nRhapsody', sub: 'Queen' },
-    { label: 'Rhapsody\nin Blue', sub: 'Gershwin' },
-    { label: 'Blue\nMonday', sub: 'New Order' },
-    { label: 'Monday\nMorning', sub: 'Fleetwood Mac' },
-  ];
-  const links = ['title: "Rhapsody"', 'title: "Blue"', 'title: "Monday"'];
+const PAGES: Page[] = [
+  {
+    main: 1, alive: 1, dead: 1,
+    text: 'A collaborative game where everyone builds a single growing chain of songs — each one connected to the last.',
+  },
+  {
+    main: 1, alive: 0.08, dead: 0.08,
+    text: 'The main chain is the longest path. Each song must connect to its parent via a shared title word, artist name, genre, or release year.',
+  },
+  {
+    main: 0.08, alive: 1, dead: 0.08,
+    text: 'Anyone can fork from the main chain and start a branch. It stays alive while it remains close enough to the head to extend.',
+  },
+  {
+    main: 0.08, alive: 0.08, dead: 1,
+    text: 'Fall too far behind and the branch goes dead — frozen in the record, visible but no longer in play.',
+  },
+  {
+    main: 1, alive: 1, dead: 1,
+    text: 'The tree grows in real time. Every song appears the moment it\'s added, for all connected players.',
+  },
+];
 
-  return (
-    <div className="wc-chain-diagram">
-      {nodes.map((n, i) => (
-        <div key={i} className="wc-chain-row">
-          <div className="wc-chain-node">
-            <div className="wc-chain-circle">
-              <span>{i + 1}</span>
-            </div>
-            <div className="wc-chain-info">
-              <div className="wc-chain-title">{n.label.replace('\n', ' ')}</div>
-              <div className="wc-chain-sub">{n.sub}</div>
-            </div>
-          </div>
-          {i < links.length && (
-            <div className="wc-chain-link">
-              <div className="wc-chain-link-line" />
-              <div className="wc-chain-link-tag">{links[i]}</div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
+const TR = { transition: 'opacity 480ms ease' } as const;
 
-function ConnectionsTab() {
-  const conns = [
-    {
-      kind: 'Title Word',
-      desc: 'A significant word appears in both song titles.',
-      eg: '"Blue Monday" → "Blue Suede Shoes"',
-      tag: 'title',
-    },
-    {
-      kind: 'Artist Name',
-      desc: 'A word from the artist name appears in the next artist name.',
-      eg: '"New Order" → "Order of Operations"',
-      tag: 'artist',
-    },
-    {
-      kind: 'Genre',
-      desc: 'Both songs share the same genre (or one contains the other).',
-      eg: '"Rock" → "Indie Rock"',
-      tag: 'genre',
-    },
-    {
-      kind: 'Release Year',
-      desc: 'Both songs were released in the exact same year.',
-      eg: '"1991 — 1991"',
-      tag: 'year',
-    },
-  ];
-
-  return (
-    <div className="wc-conns">
-      {conns.map(c => (
-        <div key={c.kind} className="wc-conn-card">
-          <div className="wc-conn-tag">{c.tag}</div>
-          <div className="wc-conn-kind">{c.kind}</div>
-          <div className="wc-conn-desc">{c.desc}</div>
-          <div className="wc-conn-eg">{c.eg}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BranchesTab() {
-  return (
-    <div className="wc-branches">
-      <div className="wc-branches-diagram">
-        <svg viewBox="0 0 340 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {/* Main chain */}
-          <line x1="20" y1="60" x2="100" y2="60" stroke="var(--ink)" strokeWidth="1.5"/>
-          <line x1="100" y1="60" x2="180" y2="60" stroke="var(--ink)" strokeWidth="1.5"/>
-          <line x1="180" y1="60" x2="260" y2="60" stroke="var(--ink)" strokeWidth="1.5"/>
-          <line x1="260" y1="60" x2="320" y2="60" stroke="var(--ink)" strokeWidth="1.5"/>
-          <circle cx="20"  cy="60" r="12" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
-          <circle cx="100" cy="60" r="12" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
-          <circle cx="180" cy="60" r="12" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
-          <circle cx="260" cy="60" r="12" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
-          <circle cx="320" cy="60" r="14" stroke="var(--accent)" strokeWidth="1.5" fill="var(--bg)"/>
-          <circle cx="320" cy="60" r="20" stroke="var(--accent)" strokeWidth="1" fill="none" opacity="0.35"/>
-          {/* Alive branch */}
-          <path d="M100 60 Q140 60 160 100" stroke="var(--ink)" strokeWidth="1" fill="none"/>
-          <line x1="160" y1="100" x2="240" y2="100" stroke="var(--ink)" strokeWidth="1"/>
-          <circle cx="160" cy="100" r="10" stroke="var(--ink)" strokeWidth="1" fill="var(--bg)"/>
-          <circle cx="240" cy="100" r="10" stroke="var(--ink)" strokeWidth="1" fill="var(--bg)"/>
-          {/* Dead branch */}
-          <path d="M20 60 Q40 60 60 130" stroke="var(--dead)" strokeWidth="1" strokeDasharray="4 3" fill="none"/>
-          <line x1="60" y1="130" x2="140" y2="130" stroke="var(--dead)" strokeWidth="1" strokeDasharray="4 3"/>
-          <circle cx="60"  cy="130" r="10" stroke="var(--dead)" strokeWidth="1" fill="var(--dead-bg)"/>
-          <circle cx="140" cy="130" r="10" stroke="var(--dead)" strokeWidth="1" fill="var(--dead-bg)"/>
-          {/* Labels */}
-          <text x="175" y="24" fontFamily="ui-monospace, monospace" fontSize="8" fill="var(--accent)" letterSpacing="2" textAnchor="middle">MAIN CHAIN</text>
-          <text x="200" y="92" fontFamily="ui-monospace, monospace" fontSize="8" fill="var(--ink)" letterSpacing="1.5" textAnchor="middle">ALIVE</text>
-          <text x="100" y="150" fontFamily="ui-monospace, monospace" fontSize="8" fill="var(--dead)" letterSpacing="1.5" textAnchor="middle">DEAD</text>
-        </svg>
-      </div>
-      <div className="wc-branch-cards">
-        <div className="wc-branch-card main">
-          <div className="wc-branch-label">Main chain</div>
-          <div className="wc-branch-desc">The longest path from root. This is the leaderboard — everyone's trying to extend it.</div>
-        </div>
-        <div className="wc-branch-card alive">
-          <div className="wc-branch-label">Alive branch</div>
-          <div className="wc-branch-desc">A fork that's still close enough to the main head to matter. You can still extend it.</div>
-        </div>
-        <div className="wc-branch-card dead">
-          <div className="wc-branch-label">Dead branch</div>
-          <div className="wc-branch-desc">A fork that fell too far behind. It's frozen — part of the history but no longer in play.</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GetStartedTab({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <div className="wc-start">
-      <div className="wc-start-steps">
-        <div className="wc-step">
-          <div className="wc-step-num">01</div>
-          <div className="wc-step-body">
-            <div className="wc-step-title">Find a "+" node</div>
-            <div className="wc-step-desc">The main chain head, recent fork points, and alive branch tips all have dashed "+" buttons you can click.</div>
-          </div>
-        </div>
-        <div className="wc-step">
-          <div className="wc-step-num">02</div>
-          <div className="wc-step-body">
-            <div className="wc-step-title">Search for your song</div>
-            <div className="wc-step-desc">Type into the search box. Results come from iTunes — covers, genres, and years are filled in automatically.</div>
-          </div>
-        </div>
-        <div className="wc-step">
-          <div className="wc-step-num">03</div>
-          <div className="wc-step-body">
-            <div className="wc-step-title">Pass the connection check</div>
-            <div className="wc-step-desc">Your song needs at least one link to its parent — title word, artist, genre, or year. The checker tells you instantly.</div>
-          </div>
-        </div>
-      </div>
-      <div className="wc-start-hint">
-        <span className="wc-hint-dot" />
-        Hover any node to see its details and connection reason
-        <span className="wc-hint-dot" />
-        Drag to navigate
-        <span className="wc-hint-dot" />
-        Scroll to zoom
-      </div>
-      <button className="wc-cta" onClick={onDismiss}>Start exploring</button>
-    </div>
-  );
-}
-
-export default function WelcomeScreen({ onDismiss }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('The Chain');
-  const [prevTab, setPrevTab] = useState<Tab | null>(null);
-  const [direction, setDirection] = useState<'left' | 'right'>('right');
+export default function WelcomeScreen({ onDismiss }: { onDismiss: () => void }) {
+  const [page, setPage] = useState(0);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -187,104 +45,71 @@ export default function WelcomeScreen({ onDismiss }: Props) {
     return () => clearTimeout(t);
   }, []);
 
-  const handleDismiss = () => {
-    try { localStorage.setItem(STORAGE_KEY, '1'); } catch {}
-    onDismiss();
-  };
-
-  const goToTab = (tab: Tab) => {
-    if (tab === activeTab) return;
-    const newIdx = TABS.indexOf(tab);
-    const curIdx = TABS.indexOf(activeTab);
-    setDirection(newIdx > curIdx ? 'right' : 'left');
-    setPrevTab(activeTab);
-    setActiveTab(tab);
-    setTimeout(() => setPrevTab(null), 260);
-  };
+  const P = PAGES[page];
+  const isFirst = page === 0;
+  const isFinal = page === PAGES.length - 1;
 
   return (
-    <div className={'wc-backdrop ' + (visible ? 'wc-visible' : '')}>
-      <div className="wc-panel">
-        {/* Header */}
-        <div className="wc-head">
-          <div className="wc-head-brand">
-            <span className="wc-mark" />
-            <div>
-              <div className="wc-eyebrow">How it works</div>
-              <div className="wc-head-title">Music Blockchain</div>
-            </div>
-          </div>
-          <button className="wc-close" onClick={handleDismiss} aria-label="Close">&#215;</button>
+    <div className={'wc-backdrop ' + (visible ? 'wc-visible' : '')} onClick={onDismiss}>
+      <div className="wc-panel" onClick={e => e.stopPropagation()}>
+
+        {/* SVG diagram */}
+        <div className="wc-svg-wrap">
+          <svg viewBox="0 0 420 190" className="wc-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+
+            {/* ── Main chain ── */}
+            <g style={{ opacity: P.main, ...TR }}>
+              <text x="190" y="15" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="8" fill="var(--accent)" letterSpacing="2.5">MAIN BRANCH</text>
+              <line x1="43"  y1="80" x2="97"  y2="80" stroke="var(--ink)" strokeWidth="1.5"/>
+              <line x1="123" y1="80" x2="175" y2="80" stroke="var(--ink)" strokeWidth="1.5"/>
+              <line x1="201" y1="80" x2="253" y2="80" stroke="var(--ink)" strokeWidth="1.5"/>
+              <line x1="279" y1="80" x2="334" y2="80" stroke="var(--ink)" strokeWidth="1.5"/>
+              <rect x="21" y="69" width="22" height="22" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
+              <circle cx="110" cy="80" r="13" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
+              <circle cx="188" cy="80" r="13" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
+              <circle cx="266" cy="80" r="13" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
+              <circle cx="348" cy="80" r="14" stroke="var(--ink)" strokeWidth="1.5" fill="var(--bg)"/>
+              <circle cx="348" cy="80" r="22" stroke="var(--accent)" strokeWidth="1" fill="none" className="wc-head-ring"/>
+            </g>
+
+            {/* ── Alive branch ── */}
+            <g style={{ opacity: P.alive, ...TR }}>
+              <text x="293" y="129" fontFamily="ui-monospace,monospace" fontSize="8" fill="var(--ink)" letterSpacing="2">ALIVE</text>
+              <path d="M 110 93 C 110 116 149 128 188 128" stroke="var(--ink)" strokeWidth="1" fill="none"/>
+              <line x1="199" y1="128" x2="255" y2="128" stroke="var(--ink)" strokeWidth="1"/>
+              <circle cx="188" cy="128" r="11" stroke="var(--ink)" strokeWidth="1" fill="var(--bg)"/>
+              <circle cx="266" cy="128" r="11" stroke="var(--ink)" strokeWidth="1" fill="var(--bg)"/>
+            </g>
+
+            {/* ── Dead branch ── */}
+            <g style={{ opacity: P.dead, ...TR }}>
+              <text x="149" y="182" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="8" fill="var(--dead)" letterSpacing="2">DEAD</text>
+              <path d="M 32 91 C 32 130 71 162 110 162" stroke="var(--dead)" strokeWidth="1" strokeDasharray="4 3" fill="none"/>
+              <line x1="121" y1="162" x2="177" y2="162" stroke="var(--dead)" strokeWidth="1" strokeDasharray="4 3"/>
+              <circle cx="110" cy="162" r="11" stroke="var(--dead)" strokeWidth="1" fill="var(--dead-bg)"/>
+              <circle cx="188" cy="162" r="11" stroke="var(--dead)" strokeWidth="1" fill="var(--dead-bg)"/>
+            </g>
+
+          </svg>
         </div>
 
-        {/* Tabs */}
-        <div className="wc-tabs">
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              className={'wc-tab ' + (tab === activeTab ? 'active' : '')}
-              onClick={() => goToTab(tab)}
-            >
-              {tab}
-            </button>
-          ))}
+        {/* Text */}
+        <div className="wc-text-area">
+          <p key={page} className="wc-text">{P.text}</p>
         </div>
 
-        {/* Content */}
-        <div className="wc-body">
-          <div
-            key={activeTab}
-            className={'wc-content wc-slide-' + direction}
-          >
-            {activeTab === 'The Chain' && (
-              <div>
-                <p className="wc-lead">
-                  Music Blockchain is a collaborative game where every song added must share a connection with the one before it. Together, everyone builds a single growing chain — and every fork tells a story.
-                </p>
-                <ChainDiagram />
-                <p className="wc-caption">
-                  Each song is a block. Each block must connect to its parent via a shared word, artist, genre, or year. The chain is live — new songs appear for everyone in real time.
-                </p>
-              </div>
-            )}
-            {activeTab === 'Connections' && <ConnectionsTab />}
-            {activeTab === 'Branches' && <BranchesTab />}
-            {activeTab === 'Get Started' && <GetStartedTab onDismiss={handleDismiss} />}
-          </div>
+        {/* Nav */}
+        <div className="wc-nav">
+          {!isFirst
+            ? <button className="wc-arrow" onClick={() => setPage(p => p - 1)} aria-label="Previous">←</button>
+            : <span />
+          }
+          {isFinal
+            ? <button className="wc-get-started" onClick={onDismiss}>Get started →</button>
+            : <button className="wc-arrow" onClick={() => setPage(p => p + 1)} aria-label="Next">→</button>
+          }
         </div>
 
-        {/* Footer nav */}
-        <div className="wc-foot">
-          <button
-            className="wc-nav-btn"
-            disabled={activeTab === TABS[0]}
-            onClick={() => goToTab(TABS[TABS.indexOf(activeTab) - 1])}
-          >
-            ← Back
-          </button>
-          <div className="wc-dots">
-            {TABS.map(tab => (
-              <button
-                key={tab}
-                className={'wc-dot ' + (tab === activeTab ? 'active' : '')}
-                onClick={() => goToTab(tab)}
-                aria-label={tab}
-              />
-            ))}
-          </div>
-          {activeTab === TABS[TABS.length - 1] ? (
-            <button className="wc-nav-btn wc-nav-dismiss" onClick={handleDismiss}>
-              Let's go →
-            </button>
-          ) : (
-            <button
-              className="wc-nav-btn"
-              onClick={() => goToTab(TABS[TABS.indexOf(activeTab) + 1])}
-            >
-              Next →
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );
