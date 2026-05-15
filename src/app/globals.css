@@ -73,7 +73,7 @@ html, body {
   font-size: 11px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;
 }
-.head-links { display: flex; gap: 6px; margin-top: 4px; }
+.head-links { display: flex; gap: 6px; margin-top: 4px; margin-bottom: 10px; }
 .head-btn {
   font-size: 10px; letter-spacing: 0.06em; padding: 3px 8px;
   border: 1px solid var(--border, #d8d8d0); color: var(--muted);

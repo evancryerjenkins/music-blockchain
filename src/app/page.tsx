@@ -1123,6 +1123,18 @@ const [activeId, setActiveId] = useState<string | null>(null);
               </div>
               <div className="title">{dn.t}</div>
               <div className="artist">{dn.a}</div>
+              <div className="head-links">
+                {(() => { const q = encodeURIComponent(`${dn.t} ${dn.a}`); return (<>
+                  <a href={`https://www.youtube.com/results?search_query=${q}`} target="_blank" rel="noreferrer" className="head-btn yt">
+                    <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><rect width="14" height="10" rx="2" fill="currentColor"/><polygon points="5.5,2.5 5.5,7.5 10,5" fill="white"/></svg>
+                    YouTube
+                  </a>
+                  <a href={`https://open.spotify.com/search/${q}`} target="_blank" rel="noreferrer" className="head-btn sp">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="6" fill="currentColor"/><path d="M3 4.5C4.8 3.9 7.5 4.1 9 5" stroke="white" strokeWidth="1" strokeLinecap="round"/><path d="M3.3 6.2C4.9 5.7 7.2 5.9 8.5 6.7" stroke="white" strokeWidth="1" strokeLinecap="round"/><path d="M3.6 7.9C4.9 7.5 6.8 7.6 7.9 8.2" stroke="white" strokeWidth="1" strokeLinecap="round"/></svg>
+                    Spotify
+                  </a>
+                </>); })()}
+              </div>
               <div className="meta">
                 <span><b>Genre</b>&nbsp; {dn.g || '—'}</span>
                 <span><b>Block</b>&nbsp; {dn.id.slice(0, 8).toUpperCase()}</span>
