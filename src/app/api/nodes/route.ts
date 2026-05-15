@@ -60,8 +60,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  // 10 POST requests per minute per IP
-  if (!rateLimit(getIp(req), 10, 60_000)) {
+  // burst of 5, refills at 0.1/s (≈6/min steady state)
+  if (!rateLimit(getIp(req), 5, 0.1)) {
     return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
   }
 

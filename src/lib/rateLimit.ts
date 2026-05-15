@@ -1,13 +1,28 @@
-// Module-level store. Resets on cold start; sufficient to limit burst attacks
-// within a single serverless instance.
-const store = new Map<string, number[]>();
+interface Bucket {
+  tokens: number;
+  lastRefill: number;
+}
 
-export function rateLimit(key: string, limit: number, windowMs: number): boolean {
+const store = new Map<string, Bucket>();
+
+export function rateLimit(
+  key: string,
+  capacity: number,
+  refillRate: number,   // tokens per second
+): boolean {
   const now = Date.now();
-  const prev = store.get(key) ?? [];
-  const hits = prev.filter(t => now - t < windowMs);
-  if (hits.length >= limit) return false;
-  hits.push(now);
-  store.set(key, hits);
+  const bucket = store.get(key) ?? { tokens: capacity, lastRefill: now };
+
+  const elapsed = (now - bucket.lastRefill) / 1000;
+  bucket.tokens = Math.min(capacity, bucket.tokens + elapsed * refillRate);
+  bucket.lastRefill = now;
+
+  if (bucket.tokens < 1) {
+    store.set(key, bucket);
+    return false;
+  }
+
+  bucket.tokens -= 1;
+  store.set(key, bucket);
   return true;
 }

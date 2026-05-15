@@ -7,8 +7,8 @@ function getIp(req: NextRequest): string {
 }
 
 export async function GET(req: NextRequest) {
-  // 30 searches per minute per IP
-  if (!rateLimit(getIp(req), 30, 60_000)) {
+  // burst of 15, refills at 0.5/s (≈30/min steady state)
+  if (!rateLimit(getIp(req), 15, 0.5)) {
     return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
   }
 

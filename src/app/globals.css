@@ -20,7 +20,7 @@ html, body {
   overflow: hidden;
 }
 .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-.app { position: relative; width: 100vw; height: 100vh; }
+.app { position: relative; width: 100vw; height: 100vh; height: 100dvh; }
 
 /* ----- Top chrome ----- */
 .chrome-top {
@@ -45,7 +45,7 @@ html, body {
 /* ----- Bottom chrome ----- */
 .chrome-bottom {
   position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 18px 36px 22px;
+  padding: 18px 36px max(22px, env(safe-area-inset-bottom));
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: 28px; z-index: 5; pointer-events: none;
 }
@@ -671,7 +671,7 @@ html, body {
 /* ----- Mobile ----- */
 @media (max-width: 640px) {
   .chrome-bottom {
-    padding: 10px 14px 14px;
+    padding: 10px 14px max(14px, env(safe-area-inset-bottom));
     gap: 12px;
     align-items: flex-end;
   }
