@@ -618,7 +618,9 @@ export default function HomePage() {
     const pts = activePointers.current;
 
     const getPinch = () => {
-      const [a, b] = [...pts.values()];
+      const iter = pts.values();
+      const a = iter.next().value as { x: number; y: number };
+      const b = iter.next().value as { x: number; y: number };
       return { dist: Math.hypot(b.x - a.x, b.y - a.y), midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2 };
     };
 
@@ -664,7 +666,7 @@ export default function HomePage() {
     const endDrag = (e: PointerEvent) => {
       pts.delete(e.pointerId);
       if (pts.size === 1) {
-        const [pt] = pts.values();
+        const pt = pts.values().next().value as { x: number; y: number };
         pinchState.current.dist = 0;
         drag.current = { active: true, startX: pt.x, startY: pt.y, startPanX: panRef.current.x, startPanY: panRef.current.y, lastX: pt.x, lastY: pt.y, lastT: performance.now(), velX: 0, velY: 0 };
         return;
