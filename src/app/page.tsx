@@ -1081,15 +1081,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                 <span><b>Block</b>&nbsp; {dn.id.slice(0, 8).toUpperCase()}</span>
                 <span><b>Depth</b>&nbsp; {dn.xs}</span>
               </div>
-              {dn.status === 'DEAD' && (() => {
-                const info = ana?.branchInfo.get(dn.branchLeafId);
-                return (
-                  <div className="death-reason">
-                    <span className="lbl">Dead branch</span>
-                    Fork point sits <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{info?.lag}</span> blocks behind the main head — past the {DEAD_LAG}-block limit.
-                  </div>
-                );
-              })()}
+
               {focusParent && dn.link && dn.status !== 'DEAD' && (
                 <div className="link-reason">
                   <span className="lbl">Link to {focusParent.id.slice(0, 6).toUpperCase()}</span>
