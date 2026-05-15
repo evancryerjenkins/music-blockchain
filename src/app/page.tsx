@@ -610,17 +610,47 @@ export default function HomePage() {
   const inertia = useRef<number | null>(null);
   const cancelInertia = () => { if (inertia.current) { cancelAnimationFrame(inertia.current); inertia.current = null; } };
   const [hasMoved, setHasMoved] = useState(false);
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchState = useRef({ dist: 0, midX: 0, midY: 0 });
 
   useEffect(() => {
     const el = canvasRef.current; if (!el) return;
+    const pts = activePointers.current;
+
+    const getPinch = () => {
+      const [a, b] = [...pts.values()];
+      return { dist: Math.hypot(b.x - a.x, b.y - a.y), midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2 };
+    };
+
     const onDown = (e: PointerEvent) => {
       if ((e.target as Element).closest?.('.node')) return;
       cancelAnim(); cancelInertia();
       el.setPointerCapture(e.pointerId);
-      drag.current = { active: true, startX: e.clientX, startY: e.clientY, startPanX: panRef.current.x, startPanY: panRef.current.y, lastX: e.clientX, lastY: e.clientY, lastT: performance.now(), velX: 0, velY: 0 };
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        drag.current.active = false;
+        const p = getPinch();
+        pinchState.current = { dist: p.dist, midX: p.midX, midY: p.midY };
+      } else {
+        drag.current = { active: true, startX: e.clientX, startY: e.clientY, startPanX: panRef.current.x, startPanY: panRef.current.y, lastX: e.clientX, lastY: e.clientY, lastT: performance.now(), velX: 0, velY: 0 };
+      }
       el.classList.add('dragging');
     };
+
     const onMove = (e: PointerEvent) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        const p = getPinch();
+        const prev = pinchState.current;
+        if (prev.dist > 0) {
+          const rect = el.getBoundingClientRect();
+          applyZoom(zoomRef.current * (p.dist / prev.dist), p.midX - rect.left, p.midY - rect.top);
+          applyPan(panRef.current.x + (p.midX - prev.midX), panRef.current.y + (p.midY - prev.midY));
+        }
+        pinchState.current = { dist: p.dist, midX: p.midX, midY: p.midY };
+        if (!hasMoved) setHasMoved(true);
+        return;
+      }
       if (!drag.current.active) return;
       const dx = e.clientX - drag.current.startX, dy = e.clientY - drag.current.startY;
       applyPan(drag.current.startPanX + dx, drag.current.startPanY + dy);
@@ -630,8 +660,16 @@ export default function HomePage() {
       drag.current.lastX = e.clientX; drag.current.lastY = e.clientY; drag.current.lastT = now;
       if (!hasMoved && Math.hypot(dx, dy) > 12) setHasMoved(true);
     };
-    const endDrag = () => {
-      if (!drag.current.active) return;
+
+    const endDrag = (e: PointerEvent) => {
+      pts.delete(e.pointerId);
+      if (pts.size === 1) {
+        const [pt] = pts.values();
+        pinchState.current.dist = 0;
+        drag.current = { active: true, startX: pt.x, startY: pt.y, startPanX: panRef.current.x, startPanY: panRef.current.y, lastX: pt.x, lastY: pt.y, lastT: performance.now(), velX: 0, velY: 0 };
+        return;
+      }
+      if (!drag.current.active) { el.classList.remove('dragging'); return; }
       drag.current.active = false;
       el.classList.remove('dragging');
       let vx = drag.current.velX * 16, vy = drag.current.velY * 16;
@@ -643,6 +681,7 @@ export default function HomePage() {
       };
       inertia.current = requestAnimationFrame(tick);
     };
+
     el.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', endDrag);
@@ -653,7 +692,7 @@ export default function HomePage() {
       window.removeEventListener('pointerup', endDrag);
       window.removeEventListener('pointercancel', endDrag);
     };
-  }, [hasMoved, applyPan]);
+  }, [hasMoved, applyPan, applyZoom]);
 
   useEffect(() => {
     const el = canvasRef.current; if (!el) return;
