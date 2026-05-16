@@ -892,9 +892,10 @@ const [activeId, setActiveId] = useState<string | null>(null);
   };
 
   const showHint   = !hasMoved;
-  const mainCount  = ana?.mainPath.length ?? 0;
-  const deadCount  = decorated.filter(n => n.status === 'DEAD').length;
-  const aliveCount = decorated.filter(n => n.status === 'ALIVE').length;
+  const mainCount        = ana?.mainPath.length ?? 0;
+  const deadCount        = decorated.filter(n => n.status === 'DEAD').length;
+  const aliveCount       = decorated.filter(n => n.status === 'ALIVE').length;
+  const contributorCount = new Set(apiNodes.map(n => n.added_by).filter(Boolean)).size;
 
   const branchTag = (n: DecoratedNode) => {
     if (n.status === 'MAIN') return { label: 'Main', cls: 'main' };
@@ -1007,6 +1008,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <span><b>{aliveCount}</b>&nbsp; alive</span>
           <span className="dead-c"><b>{deadCount}</b>&nbsp; dead</span>
           <span><b>{decorated.length}</b>&nbsp; total</span>
+          <span><b>{contributorCount}</b>&nbsp; contributors</span>
         </div>
       </div>
 
