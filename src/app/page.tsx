@@ -7,6 +7,16 @@ import AddSongModal from '@/components/AddSongModal';
 import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
 
 /* ------------------------------------------------------------------ */
+/* Helpers                                                              */
+/* ------------------------------------------------------------------ */
+
+async function hashTokenClient(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ------------------------------------------------------------------ */
 /* Internal tree types                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -439,13 +449,17 @@ export default function HomePage() {
   const [addError, setAddError]   = useState<string | null>(null);
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
   const sessionToken = useRef<string>('');
+  const [hashedToken, setHashedToken] = useState<string>('');
   useEffect(() => {
     const KEY = 'music_blockchain_session';
+    let token: string;
     try {
-      let token = localStorage.getItem(KEY);
-      if (!token) { token = crypto.randomUUID(); localStorage.setItem(KEY, token); }
-      sessionToken.current = token;
-    } catch { sessionToken.current = crypto.randomUUID(); }
+      const stored = localStorage.getItem(KEY);
+      token = stored ?? crypto.randomUUID();
+      if (!stored) localStorage.setItem(KEY, token);
+    } catch { token = crypto.randomUUID(); }
+    sessionToken.current = token;
+    hashTokenClient(token).then(setHashedToken);
   }, []);
 
   /* Fetch nodes on mount */
@@ -848,7 +862,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
   const lastNode = apiNodes.length > 0
     ? apiNodes.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
     : null;
-  const userIsBlocked = !!(lastNode && sessionToken.current && lastNode.session_token === sessionToken.current);
+  const userIsBlocked = !!(lastNode && hashedToken && lastNode.session_token === hashedToken);
 
   /* Hover card focus */
   const allNodes = [...decorated, ...pluses];
