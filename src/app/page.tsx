@@ -1234,9 +1234,9 @@ const [activeId, setActiveId] = useState<string | null>(null);
                 <span className="mono">{userIsBlocked ? 'LOCKED' : 'OPEN'}</span>
               </div>
               <div className="title">
-                {isExtendMain ? 'Add the next main block'
-                  : isFork ? <>Fork off <span style={{ color: 'var(--accent)' }}>{parentNode?.id.slice(0, 6).toUpperCase()}</span></>
-                  : 'Continue this branch'}
+                {isExtendMain ? (userIsBlocked ? 'Wait to add the next main block' : 'Add the next main block')
+                  : isFork ? <>{userIsBlocked ? 'Wait to fork off' : 'Fork off'} <span style={{ color: 'var(--accent)' }}>{parentNode?.id.slice(0, 6).toUpperCase()}</span></>
+                  : (userIsBlocked ? 'Wait to continue this branch' : 'Continue this branch')}
               </div>
               {userIsBlocked ? (
                 <div className="plus-body">
