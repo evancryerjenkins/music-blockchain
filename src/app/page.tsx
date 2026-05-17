@@ -5,6 +5,7 @@ import { MusicNode, ItunesTrack, SimilarityReason } from '@/lib/types';
 import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
 import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
+import StatsPanel from '@/components/StatsPanel';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */
@@ -447,6 +448,7 @@ export default function HomePage() {
   const [addingPlus, setAddingPlus] = useState<PlusNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError]   = useState<string | null>(null);
+  const [showStats, setShowStats]  = useState(false);
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
   const sessionToken = useRef<string>('');
   const [hashedToken, setHashedToken] = useState<string>('');
@@ -1040,12 +1042,18 @@ const [activeId, setActiveId] = useState<string | null>(null);
             <div className="sub">Longest chain wins. Branches die after {DEAD_LAG} blocks.</div>
           </div>
         </div>
-        <div className="meta-strip">
-          <span className="main-c"><b>{mainCount}</b>&nbsp; main</span>
-          <span><b>{aliveCount}</b>&nbsp; alive</span>
-          <span className="dead-c"><b>{deadCount}</b>&nbsp; dead</span>
-          <span><b>{decorated.length}</b>&nbsp; total</span>
-          <span><b>{contributorCount}</b>&nbsp; contributors</span>
+        <div className="chrome-right">
+          <div className="meta-strip">
+            <span className="main-c"><b>{mainCount}</b>&nbsp; main</span>
+            <span><b>{aliveCount}</b>&nbsp; alive</span>
+            <span className="dead-c"><b>{deadCount}</b>&nbsp; dead</span>
+            <span><b>{decorated.length}</b>&nbsp; total</span>
+            <span><b>{contributorCount}</b>&nbsp; contributors</span>
+          </div>
+          <button className="stats-btn" onClick={() => setShowStats(s => !s)}>
+            Stats
+          </button>
+          {showStats && <StatsPanel nodes={apiNodes} onClose={() => setShowStats(false)} />}
         </div>
       </div>
 
