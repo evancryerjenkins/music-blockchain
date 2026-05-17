@@ -437,7 +437,6 @@ export default function HomePage() {
   const [addingPlus, setAddingPlus] = useState<PlusNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError]   = useState<string | null>(null);
-  const [turnBlocked, setTurnBlocked] = useState(false);
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
   const sessionToken = useRef<string>('');
   useEffect(() => {
@@ -809,8 +808,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
       });
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 429 && data.error?.includes('Someone else')) setTurnBlocked(true);
-        else setAddError(data.error || 'Failed to add song.');
+        setAddError(data.error || 'Failed to add song.');
         return;
       }
 
@@ -847,9 +845,10 @@ const [activeId, setActiveId] = useState<string | null>(null);
     return out;
   }, [pluses, decorated, byIdDeco]);
 
-  const lastContributor = apiNodes.length > 0
-    ? apiNodes.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b).added_by
+  const lastNode = apiNodes.length > 0
+    ? apiNodes.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
     : null;
+  const userIsBlocked = !!(lastNode && sessionToken.current && lastNode.session_token === sessionToken.current);
 
   /* Hover card focus */
   const allNodes = [...decorated, ...pluses];
@@ -1120,6 +1119,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                    onMouseLeave={() => setHoverId(null)}
                    onClick={e => {
                      e.stopPropagation();
+                     if (userIsBlocked) return;
                      setActiveId(p.id);
                      setHoverId(null);
                      setAddError(null);
@@ -1215,39 +1215,45 @@ const [activeId, setActiveId] = useState<string | null>(null);
                 <span className={'branch-tag ' + (isExtendMain || isFork ? 'main' : '')}>
                   {isExtendMain ? 'Extend main' : pn.kind === 'fork-main' ? 'Fork from main' : isFork ? 'Fork from branch' : 'Extend branch'}
                 </span>
-                <span className="mono">OPEN</span>
+                <span className="mono">{userIsBlocked ? 'LOCKED' : 'OPEN'}</span>
               </div>
               <div className="title">
                 {isExtendMain ? 'Add the next main block'
                   : isFork ? <>Fork off <span style={{ color: 'var(--accent)' }}>{parentNode?.id.slice(0, 6).toUpperCase()}</span></>
                   : 'Continue this branch'}
               </div>
-              <div className="plus-body">
-                {isExtendMain && parentNode && <>
-                  Plant the next block at the head of the chain. Must share a word, artist, year, or genre with <b>{parentNode.t}</b>.
-                </>}
-                {isFork && parentNode && <>
-                  Start a new branch from <b>{parentNode.t}</b>. The first block lands{' '}
-                  {behind === 0 ? <>tied with main</> : <><span className="accent">{pl(behind)}</span> behind main</>}.
-                  {' '}Add <span className="accent">{pl(toOvertake)}</span> total to overtake and become the new main.
-                </>}
-                {!isFork && !isExtendMain && <>
-                  Extend this living branch. The tip is currently{' '}
-                  {behind === 0 ? <>tied with main</> : <><span className="accent">{pl(behind)}</span> behind main</>}.
-                  {' '}Add <span className="accent">{pl(toOvertake)}</span> more to overtake.
-                </>}
-              </div>
-              <div className="plus-meta">
-                <span>Depth &nbsp;<b>{pn.xs}</b></span>
-                <span>{isExtendMain ? 'MAIN HEAD'
-                  : mainGraceBlocks === 0 ? 'DIES ON NEXT MAIN BLOCK'
-                  : `DIES IF MAIN ×${mainGraceBlocks} FIRST`}</span>
-              </div>
-              {(isFork || (!isExtendMain && !isFork)) && (
-                <div className="plus-warn">
-                  Longest chain wins. A branch dies once its fork point falls {DEAD_LAG} blocks behind the main head.
+              {userIsBlocked ? (
+                <div className="plus-body">
+                  You just added — someone else must contribute before you can go again.
                 </div>
-              )}
+              ) : (<>
+                <div className="plus-body">
+                  {isExtendMain && parentNode && <>
+                    Plant the next block at the head of the chain. Must share a word, artist, year, or genre with <b>{parentNode.t}</b>.
+                  </>}
+                  {isFork && parentNode && <>
+                    Start a new branch from <b>{parentNode.t}</b>. The first block lands{' '}
+                    {behind === 0 ? <>tied with main</> : <><span className="accent">{pl(behind)}</span> behind main</>}.
+                    {' '}Add <span className="accent">{pl(toOvertake)}</span> total to overtake and become the new main.
+                  </>}
+                  {!isFork && !isExtendMain && <>
+                    Extend this living branch. The tip is currently{' '}
+                    {behind === 0 ? <>tied with main</> : <><span className="accent">{pl(behind)}</span> behind main</>}.
+                    {' '}Add <span className="accent">{pl(toOvertake)}</span> more to overtake.
+                  </>}
+                </div>
+                <div className="plus-meta">
+                  <span>Depth &nbsp;<b>{pn.xs}</b></span>
+                  <span>{isExtendMain ? 'MAIN HEAD'
+                    : mainGraceBlocks === 0 ? 'DIES ON NEXT MAIN BLOCK'
+                    : `DIES IF MAIN ×${mainGraceBlocks} FIRST`}</span>
+                </div>
+                {(isFork || (!isExtendMain && !isFork)) && (
+                  <div className="plus-warn">
+                    Longest chain wins. A branch dies once its fork point falls {DEAD_LAG} blocks behind the main head.
+                  </div>
+                )}
+              </>)}
             </div>
           );
         })()}
@@ -1350,53 +1356,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
         </div>
       )}
 
-      {turnBlocked && (
-        <TurnBlockedToast lastAddedBy={lastContributor} onDismiss={() => setTurnBlocked(false)} />
-      )}
-
       {showWelcome && <WelcomeScreen onDismiss={dismissWelcome} />}
-    </div>
-  );
-}
-
-function TurnBlockedToast({ lastAddedBy, onDismiss }: { lastAddedBy: string | null; onDismiss: () => void }) {
-  const [progress, setProgress] = useState(100);
-  const DURATION = 4000;
-
-  useEffect(() => {
-    const start = Date.now();
-    const id = setInterval(() => {
-      const pct = Math.max(0, 100 - ((Date.now() - start) / DURATION) * 100);
-      setProgress(pct);
-      if (pct === 0) { clearInterval(id); onDismiss(); }
-    }, 50);
-    return () => clearInterval(id);
-  }, [onDismiss]);
-
-  return (
-    <div style={{
-      position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 300, width: 300, background: 'var(--accent-soft)',
-      border: '1px solid var(--accent)', overflow: 'hidden',
-      animation: 'slideIn 0.18s ease',
-    }}>
-      <div style={{ padding: '14px 16px 12px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600, marginBottom: 5 }}>
-            Wait your turn
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
-            {lastAddedBy
-              ? <><b style={{ fontWeight: 500 }}>{lastAddedBy}</b> just added — someone else must go before you can add another.</>
-              : 'Someone else must add a song before you can go again.'}
-          </div>
-        </div>
-        <button onClick={onDismiss} aria-label="Dismiss"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>
-          ×
-        </button>
-      </div>
-      <div style={{ height: 2, background: 'var(--accent)', width: `${progress}%`, transition: 'width 50ms linear' }} />
     </div>
   );
 }

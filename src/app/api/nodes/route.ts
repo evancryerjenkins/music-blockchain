@@ -81,6 +81,10 @@ export async function POST(req: NextRequest) {
     added_by: string; session_token?: string;
   };
 
+  if (typeof session_token !== 'string' || session_token.trim().length === 0) {
+    return NextResponse.json({ error: 'Missing session token.' }, { status: 400 });
+  }
+
   const { data: allNodes, error: fetchError } = await supabase.from('music_nodes').select('*');
 
   if (fetchError) {
@@ -91,7 +95,7 @@ export async function POST(req: NextRequest) {
   const nodes: MusicNode[] = allNodes || [];
 
   // Prevent same session adding two nodes in a row
-  if (session_token && nodes.length > 0) {
+  if (nodes.length > 0) {
     const lastNode = nodes.reduce((a, b) =>
       new Date(a.created_at) > new Date(b.created_at) ? a : b
     );
