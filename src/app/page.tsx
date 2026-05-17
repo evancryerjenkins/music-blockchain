@@ -944,9 +944,11 @@ const [activeId, setActiveId] = useState<string | null>(null);
       <div className="app">
         <div className="loading-state">
           <p style={{ color: 'var(--dead)' }}>{fetchError}</p>
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-            Check your Supabase environment variables in .env.local
-          </p>
+          {process.env.NODE_ENV === 'development' && (
+            <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              Check your Supabase environment variables in .env.local
+            </p>
+          )}
         </div>
       </div>
     );

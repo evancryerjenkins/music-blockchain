@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'crypto';
 import { checkSimilarity } from '@/lib/similarity';
 import { MusicNode } from '@/lib/types';
 import { rateLimit } from '@/lib/rateLimit';
 import { getIp } from '@/lib/getIp';
+import { acquireSessionLock, releaseSessionLock } from '@/lib/sessionLock';
 
 function isAllowedUrl(url: unknown): boolean {
   if (url === undefined || url === null) return true;
@@ -33,6 +35,10 @@ function validateBody(body: Record<string, unknown>): string | null {
   if (typeof added_by !== 'string' || added_by.trim().length === 0 || added_by.length > 100)
     return 'added_by must be a non-empty name under 100 characters.';
   return null;
+}
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 function getSupabase() {
@@ -81,9 +87,16 @@ export async function POST(req: NextRequest) {
     added_by: string; session_token?: string;
   };
 
-  if (typeof session_token !== 'string' || session_token.trim().length === 0) {
+  if (typeof session_token !== 'string' || session_token.trim().length === 0 || session_token.length > 128) {
     return NextResponse.json({ error: 'Missing session token.' }, { status: 400 });
   }
+  const hashedToken = hashToken(session_token);
+
+  if (!await acquireSessionLock(session_token)) {
+    return NextResponse.json({ error: 'Another submission from this session is in progress.' }, { status: 429 });
+  }
+
+  try {
 
   const { data: allNodes, error: fetchError } = await supabase.from('music_nodes').select('*');
 
@@ -99,7 +112,7 @@ export async function POST(req: NextRequest) {
     const lastNode = nodes.reduce((a, b) =>
       new Date(a.created_at) > new Date(b.created_at) ? a : b
     );
-    if (lastNode.session_token === session_token) {
+    if (lastNode.session_token === hashedToken) {
       return NextResponse.json(
         { error: 'Someone else must add a song before you can add another.' },
         { status: 429 }
@@ -114,7 +127,7 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase
       .from('music_nodes')
-      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: added_by.trim(), session_token: session_token ?? null })
+      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: added_by.trim(), session_token: hashedToken })
       .select()
       .single();
     if (error) {
@@ -126,6 +139,10 @@ export async function POST(req: NextRequest) {
 
   const parent = nodes.find(n => n.id === parent_id);
   if (!parent) return NextResponse.json({ error: 'Parent node not found.' }, { status: 404 });
+
+  if (parent.depth >= 500) {
+    return NextResponse.json({ error: 'Maximum chain depth reached.' }, { status: 400 });
+  }
 
   const similarity = checkSimilarity(
     parent.song_title, parent.artist, parent.genre, parent.year,
@@ -166,7 +183,7 @@ export async function POST(req: NextRequest) {
       parent_id,
       depth: parent.depth + 1,
       added_by: added_by.trim(),
-      session_token: session_token ?? null,
+      session_token: hashedToken,
     })
     .select()
     .single();
@@ -180,4 +197,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to add node.' }, { status: 500 });
   }
   return NextResponse.json({ node: data, similarity }, { status: 201 });
+
+  } finally {
+    await releaseSessionLock(session_token);
+  }
 }
