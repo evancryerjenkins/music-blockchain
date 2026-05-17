@@ -21,6 +21,7 @@ interface RawNode {
   link: { kind: string; value: string } | null;
   cover: string | null;
   addedBy: string | null;
+  createdAt: string;
 }
 
 interface PlusNode {
@@ -104,6 +105,7 @@ function toRawNodes(apiNodes: MusicNode[]): RawNode[] {
       link,
       cover: n.album_art,
       addedBy: n.added_by,
+      createdAt: n.created_at,
     };
   });
 }
@@ -435,7 +437,17 @@ export default function HomePage() {
   const [addingPlus, setAddingPlus] = useState<PlusNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError]   = useState<string | null>(null);
+  const [turnBlocked, setTurnBlocked] = useState(false);
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
+  const sessionToken = useRef<string>('');
+  useEffect(() => {
+    const KEY = 'music_blockchain_session';
+    try {
+      let token = localStorage.getItem(KEY);
+      if (!token) { token = crypto.randomUUID(); localStorage.setItem(KEY, token); }
+      sessionToken.current = token;
+    } catch { sessionToken.current = crypto.randomUUID(); }
+  }, []);
 
   /* Fetch nodes on mount */
   const fetchNodes = useCallback(async () => {
@@ -792,10 +804,15 @@ const [activeId, setActiveId] = useState<string | null>(null);
           itunes_url: track.trackViewUrl || null,
           preview_url: track.previewUrl || null,
           added_by: addedBy,
+          session_token: sessionToken.current || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setAddError(data.error || 'Failed to add song.'); return; }
+      if (!res.ok) {
+        if (res.status === 429 && data.error?.includes('Someone else')) setTurnBlocked(true);
+        else setAddError(data.error || 'Failed to add song.');
+        return;
+      }
 
       const newNode: MusicNode = data.node;
       setApiNodes(prev => prev.find(n => n.id === newNode.id) ? prev : [...prev, newNode]);
@@ -829,6 +846,10 @@ const [activeId, setActiveId] = useState<string | null>(null);
     });
     return out;
   }, [pluses, decorated, byIdDeco]);
+
+  const lastContributor = apiNodes.length > 0
+    ? apiNodes.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b).added_by
+    : null;
 
   /* Hover card focus */
   const allNodes = [...decorated, ...pluses];
@@ -946,7 +967,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <p>Be the first to plant a seed. Pick any song to start the music blockchain.</p>
           <button className="btn-seed" onClick={() => {
             const seedPlus: PlusNode = { id: '+seed', parent: '', xs: 0, lane: 0, kind: 'extend-main' };
-            const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null, addedBy: null };
+            const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null, addedBy: null, createdAt: '' };
             setAddingPlus(seedPlus);
           }}>
             Plant the Seed
@@ -971,6 +992,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                     itunes_url: track.trackViewUrl || null,
                     preview_url: track.previewUrl || null,
                     added_by: addedBy,
+                    session_token: sessionToken.current || undefined,
                   }),
                 });
                 const data = await res.json();
@@ -1143,6 +1165,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                 <span><b>Block</b>&nbsp; {dn.id.slice(0, 8).toUpperCase()}</span>
                 <span><b>Depth</b>&nbsp; {dn.xs}</span>
                 {dn.addedBy && <span><b>Added by</b>&nbsp; {dn.addedBy}</span>}
+                {dn.createdAt && <span><b>Added</b>&nbsp; {new Date(dn.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>}
               </div>
 
               {focusParent && dn.link && dn.status !== 'DEAD' && (
@@ -1316,15 +1339,8 @@ const [activeId, setActiveId] = useState<string | null>(null);
           ancestorSongs={ancestorSongs}
           onClose={() => { setAddingPlus(null); setAddError(null); }}
           onAdd={handleAdd}
+          externalError={addError}
         />
-      )}
-
-      {addError && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 50,
-          padding: '8px 16px', background: 'var(--dead-bg)', border: '1px solid var(--dead)',
-          fontSize: 11, color: 'var(--ink)', pointerEvents: 'none' }}>
-          {addError}
-        </div>
       )}
 
       {submitting && (
@@ -1334,7 +1350,53 @@ const [activeId, setActiveId] = useState<string | null>(null);
         </div>
       )}
 
+      {turnBlocked && (
+        <TurnBlockedToast lastAddedBy={lastContributor} onDismiss={() => setTurnBlocked(false)} />
+      )}
+
       {showWelcome && <WelcomeScreen onDismiss={dismissWelcome} />}
+    </div>
+  );
+}
+
+function TurnBlockedToast({ lastAddedBy, onDismiss }: { lastAddedBy: string | null; onDismiss: () => void }) {
+  const [progress, setProgress] = useState(100);
+  const DURATION = 4000;
+
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      const pct = Math.max(0, 100 - ((Date.now() - start) / DURATION) * 100);
+      setProgress(pct);
+      if (pct === 0) { clearInterval(id); onDismiss(); }
+    }, 50);
+    return () => clearInterval(id);
+  }, [onDismiss]);
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 300, width: 300, background: 'var(--accent-soft)',
+      border: '1px solid var(--accent)', overflow: 'hidden',
+      animation: 'slideIn 0.18s ease',
+    }}>
+      <div style={{ padding: '14px 16px 12px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600, marginBottom: 5 }}>
+            Wait your turn
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+            {lastAddedBy
+              ? <><b style={{ fontWeight: 500 }}>{lastAddedBy}</b> just added — someone else must go before you can add another.</>
+              : 'Someone else must add a song before you can go again.'}
+          </div>
+        </div>
+        <button onClick={onDismiss} aria-label="Dismiss"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>
+          ×
+        </button>
+      </div>
+      <div style={{ height: 2, background: 'var(--accent)', width: `${progress}%`, transition: 'width 50ms linear' }} />
     </div>
   );
 }

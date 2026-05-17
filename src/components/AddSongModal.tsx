@@ -33,11 +33,12 @@ interface Props {
   ancestorSongs: { t: string; a: string }[];
   onClose: () => void;
   onAdd: (result: AddResult) => void;
+  externalError?: string | null;
 }
 
 const norm = (s: string) => s.toLowerCase().trim();
 
-export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onAdd }: Props) {
+export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onAdd, externalError }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<(ItunesTrack & { year: number | null })[]>([]);
   const [searching, setSearching] = useState(false);
@@ -219,7 +220,7 @@ export default function AddSongModal({ plus, parent, ancestorSongs, onClose, onA
           })}
         </div>
 
-        {error && <div className="modal-error">{error}</div>}
+        {(error || externalError) && <div className="modal-error">{externalError ?? error}</div>}
 
         <div className="modal-foot">
           {selected && similarity?.matches && (

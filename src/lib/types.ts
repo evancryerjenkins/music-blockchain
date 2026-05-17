@@ -10,6 +10,7 @@ export interface MusicNode {
   preview_url: string | null;
   depth: number;
   added_by: string | null;
+  session_token: string | null;
   created_at: string;
 }
 

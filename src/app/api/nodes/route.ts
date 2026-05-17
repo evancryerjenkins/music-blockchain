@@ -74,16 +74,14 @@ export async function POST(req: NextRequest) {
   const validationError = validateBody(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
-  const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url, added_by } = body as {
+  const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url, added_by, session_token } = body as {
     parent_id?: string; song_title: string; artist: string;
     genre?: string | null; year?: number | null;
     album_art?: string | null; itunes_url?: string | null; preview_url?: string | null;
-    added_by: string;
+    added_by: string; session_token?: string;
   };
 
-  const { data: allNodes, error: fetchError } = await supabase
-    .from('music_nodes')
-    .select('*');
+  const { data: allNodes, error: fetchError } = await supabase.from('music_nodes').select('*');
 
   if (fetchError) {
     console.error('[POST /api/nodes] fetch', fetchError);
@@ -92,6 +90,19 @@ export async function POST(req: NextRequest) {
 
   const nodes: MusicNode[] = allNodes || [];
 
+  // Prevent same session adding two nodes in a row
+  if (session_token && nodes.length > 0) {
+    const lastNode = nodes.reduce((a, b) =>
+      new Date(a.created_at) > new Date(b.created_at) ? a : b
+    );
+    if (lastNode.session_token === session_token) {
+      return NextResponse.json(
+        { error: 'Someone else must add a song before you can add another.' },
+        { status: 429 }
+      );
+    }
+  }
+
   // Root node — only if tree is empty
   if (!parent_id) {
     if (nodes.length > 0) {
@@ -99,7 +110,7 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase
       .from('music_nodes')
-      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: added_by.trim() })
+      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: added_by.trim(), session_token: session_token ?? null })
       .select()
       .single();
     if (error) {
@@ -151,6 +162,7 @@ export async function POST(req: NextRequest) {
       parent_id,
       depth: parent.depth + 1,
       added_by: added_by.trim(),
+      session_token: session_token ?? null,
     })
     .select()
     .single();

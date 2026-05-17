@@ -12,8 +12,9 @@ CREATE TABLE IF NOT EXISTS music_nodes (
   itunes_url  TEXT,
   preview_url TEXT,
   depth       INTEGER NOT NULL DEFAULT 0,
-  added_by    TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  added_by      TEXT,
+  session_token TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_music_nodes_parent ON music_nodes(parent_id);
