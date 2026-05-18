@@ -42,21 +42,16 @@ html, body {
 .meta-strip .dead-c b { color: var(--dead); }
 .meta-strip .main-c b { color: var(--accent); }
 
-/* ----- Chrome right (meta-strip + stats) ----- */
-.chrome-right {
-  display: flex; align-items: flex-start; gap: 16px;
-  position: relative;
-}
+/* ----- Stats button (lives inside .meta-strip) ----- */
 .stats-btn {
-  background: transparent; border: 1px solid var(--rule);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--muted); padding: 3px 9px;
-  cursor: pointer; white-space: nowrap;
-  transition: border-color 140ms ease, color 140ms ease;
-  flex-shrink: 0;
+  background: transparent; border: 0;
+  font-family: inherit; font-size: inherit;
+  letter-spacing: inherit; text-transform: inherit;
+  color: var(--muted); padding: 0;
+  cursor: pointer;
+  transition: color 140ms ease;
 }
-.stats-btn:hover { border-color: var(--ink); color: var(--ink); }
+.stats-btn:hover { color: var(--ink); }
 
 /* ----- Stats panel ----- */
 .sp-panel {

@@ -1042,16 +1042,14 @@ const [activeId, setActiveId] = useState<string | null>(null);
             <div className="sub">Longest chain wins. Branches die after {DEAD_LAG} blocks.</div>
           </div>
         </div>
-        <div className="chrome-right">
-          <div className="meta-strip">
-            <span className="main-c"><b>{mainCount}</b>&nbsp; main</span>
-            <span><b>{aliveCount}</b>&nbsp; alive</span>
-            <span className="dead-c"><b>{deadCount}</b>&nbsp; dead</span>
-            <span><b>{decorated.length}</b>&nbsp; total</span>
-            <span><b>{contributorCount}</b>&nbsp; contributors</span>
-          </div>
+        <div className="meta-strip" style={{ position: 'relative' }}>
+          <span className="main-c"><b>{mainCount}</b>&nbsp; main</span>
+          <span><b>{aliveCount}</b>&nbsp; alive</span>
+          <span className="dead-c"><b>{deadCount}</b>&nbsp; dead</span>
+          <span><b>{decorated.length}</b>&nbsp; total</span>
+          <span><b>{contributorCount}</b>&nbsp; contributors</span>
           <button className="stats-btn" onClick={() => setShowStats(s => !s)}>
-            Stats
+            stats
           </button>
           {showStats && <StatsPanel nodes={apiNodes} onClose={() => setShowStats(false)} />}
         </div>
