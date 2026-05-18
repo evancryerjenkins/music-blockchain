@@ -44,19 +44,32 @@ html, body {
 
 /* ----- Stats button (lives inside .meta-strip) ----- */
 .stats-btn {
-  background: transparent; border: 0;
+  background: transparent;
   font-family: inherit; font-size: inherit;
   letter-spacing: inherit; text-transform: inherit;
-  color: var(--muted); padding: 0;
+  color: var(--muted);
   cursor: pointer;
-  transition: color 140ms ease;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  transition: color 140ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
-.stats-btn:hover { color: var(--ink); }
+.stats-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+  animation: stats-btn-pulse 400ms ease forwards;
+}
+@keyframes stats-btn-pulse {
+  0%   { box-shadow: 0 0 0 0px color-mix(in srgb, var(--ink) 40%, transparent); }
+  60%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 0%, transparent); }
+  100% { box-shadow: 0 0 0 1px var(--ink); }
+}
 
 /* ----- Stats panel ----- */
 .sp-panel {
   position: absolute; top: calc(100% + 12px); right: 0;
-  width: 320px;
+  width: 360px;
   background: var(--bg);
   border: 1px solid var(--ink);
   z-index: 50;
@@ -73,7 +86,7 @@ html, body {
   color: var(--muted);
 }
 .sp-body {
-  overflow-y: auto; max-height: 480px;
+  overflow-y: auto; overflow-x: hidden; max-height: 480px;
   scrollbar-width: thin; scrollbar-color: var(--rule) transparent;
 }
 .sp-body::-webkit-scrollbar { width: 4px; }
@@ -162,7 +175,20 @@ html, body {
   font-size: 11px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;
 }
-.head-links { display: flex; gap: 6px; margin-top: 4px; margin-bottom: 10px; pointer-events: auto; }
+.head-meta {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;
+}
+.head-meta-item {
+  display: flex; gap: 4px; align-items: baseline;
+}
+.head-meta-key {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.head-meta-val {
+  font-size: 10px; color: var(--ink);
+}
+.head-links { display: flex; gap: 6px; margin-top: 6px; margin-bottom: 10px; pointer-events: auto; }
 .head-btn {
   font-size: 10px; letter-spacing: 0.06em; padding: 3px 8px;
   border: 1px solid var(--border, #d8d8d0); color: var(--muted);

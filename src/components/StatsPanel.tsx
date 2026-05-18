@@ -70,7 +70,7 @@ function DecadeChart({ nodes }: { nodes: MusicNode[] }) {
     );
   }
 
-  const chartW = 290;
+  const chartW = 328;
   const chartH = 72;
   const barPad = 3;
   const maxCount = Math.max(...data.map(d => d.count), 1);

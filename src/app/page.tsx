@@ -17,6 +17,14 @@ async function hashTokenClient(token: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function timeAgo(iso: string): string {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Internal tree types                                                  */
 /* ------------------------------------------------------------------ */
@@ -1293,6 +1301,22 @@ const [activeId, setActiveId] = useState<string | null>(null);
                 <span className="head-label">HEAD</span>
                 <span className="head-song">{head.t}</span>
                 <span className="head-artist">{head.a}</span>
+                <div className="head-meta">
+                  <span className="head-meta-item">
+                    <span className="head-meta-key">block</span>
+                    <span className="head-meta-val mono">{head.id.slice(0, 8).toUpperCase()}</span>
+                  </span>
+                  {head.addedBy && (
+                    <span className="head-meta-item">
+                      <span className="head-meta-key">by</span>
+                      <span className="head-meta-val">{head.addedBy}</span>
+                    </span>
+                  )}
+                  <span className="head-meta-item">
+                    <span className="head-meta-key">added</span>
+                    <span className="head-meta-val">{timeAgo(head.createdAt)}</span>
+                  </span>
+                </div>
                 <div className="head-links">
                   <a href={`https://www.youtube.com/results?search_query=${q}`} target="_blank" rel="noreferrer" className="head-btn yt">
                     <svg width="14" height="10" viewBox="0 0 14 10" fill="none" xmlns="http://www.w3.org/2000/svg">
