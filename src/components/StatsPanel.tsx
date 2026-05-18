@@ -1,11 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MusicNode } from '@/lib/types';
 
 interface Props {
   nodes: MusicNode[];
   onClose: () => void;
+}
+
+interface DetailState {
+  type: 'genre' | 'artist' | 'contributor' | 'decade';
+  value: string | number;
+  arrowY: number;
 }
 
 function topN(values: (string | null)[], n: number): { label: string; count: number }[] {
@@ -19,7 +25,17 @@ function topN(values: (string | null)[], n: number): { label: string; count: num
     .map(([label, count]) => ({ label, count }));
 }
 
-function StatList({ title, items }: { title: string; items: { label: string; count: number }[] }) {
+function StatList({
+  title,
+  items,
+  activeLabel,
+  onItemClick,
+}: {
+  title: string;
+  items: { label: string; count: number }[];
+  activeLabel?: string;
+  onItemClick: (label: string, el: Element) => void;
+}) {
   const max = items[0]?.count ?? 1;
   return (
     <div className="sp-section">
@@ -27,7 +43,11 @@ function StatList({ title, items }: { title: string; items: { label: string; cou
       {items.length === 0
         ? <div className="sp-empty">No data yet</div>
         : items.map(({ label, count }, i) => (
-            <div key={label} className="sp-row">
+            <div
+              key={label}
+              className={`sp-row sp-row-btn${activeLabel === label ? ' sp-row-active' : ''}`}
+              onClick={(e) => onItemClick(label, e.currentTarget)}
+            >
               <span className="sp-rank">{i + 1}</span>
               <div className="sp-bar-wrap">
                 <div className="sp-bar" style={{ width: `${(count / max) * 100}%` }} />
@@ -41,7 +61,15 @@ function StatList({ title, items }: { title: string; items: { label: string; cou
   );
 }
 
-function DecadeChart({ nodes }: { nodes: MusicNode[] }) {
+function DecadeChart({
+  nodes,
+  activeDecade,
+  onDecadeClick,
+}: {
+  nodes: MusicNode[];
+  activeDecade?: number;
+  onDecadeClick: (decade: number, el: Element) => void;
+}) {
   const data = useMemo(() => {
     const counts = new Map<number, number>();
     for (const n of nodes) {
@@ -90,12 +118,23 @@ function DecadeChart({ nodes }: { nodes: MusicNode[] }) {
           const x = i * (barW + barPad) + barPad;
           const y = chartH - barH;
           const label = `'${String(decade).slice(2)}`;
+          const isActive = activeDecade === decade;
           return (
-            <g key={decade}>
+            <g
+              key={decade}
+              style={{ cursor: count > 0 ? 'pointer' : 'default' }}
+              onClick={(e) => count > 0 && onDecadeClick(decade, e.currentTarget)}
+            >
               <rect
                 x={x} y={y}
                 width={barW} height={barH}
-                className={count === 0 ? 'sp-bar-decade sp-bar-decade-zero' : 'sp-bar-decade'}
+                className={
+                  count === 0
+                    ? 'sp-bar-decade sp-bar-decade-zero'
+                    : isActive
+                      ? 'sp-bar-decade sp-bar-decade-active'
+                      : 'sp-bar-decade'
+                }
               />
               <text
                 x={x + barW / 2}
@@ -123,13 +162,75 @@ function DecadeChart({ nodes }: { nodes: MusicNode[] }) {
   );
 }
 
+function DetailPanel({
+  detail,
+  nodes,
+  detailRef,
+  onClose,
+}: {
+  detail: DetailState;
+  nodes: MusicNode[];
+  detailRef: React.RefObject<HTMLDivElement>;
+  onClose: () => void;
+}) {
+  const songs = useMemo(() => {
+    switch (detail.type) {
+      case 'genre':
+        return nodes.filter(n => n.genre?.trim() === detail.value);
+      case 'artist':
+        return nodes.filter(n => n.artist?.trim() === detail.value);
+      case 'contributor':
+        return nodes.filter(n => n.added_by?.trim() === detail.value);
+      case 'decade':
+        return nodes.filter(n => n.year && Math.floor(n.year / 10) * 10 === detail.value);
+      default:
+        return [];
+    }
+  }, [detail, nodes]);
+
+  const title = detail.type === 'decade' ? `${detail.value}s` : String(detail.value);
+
+  return (
+    <div className="dp-panel" ref={detailRef}>
+      <div
+        className="dp-arrow"
+        style={{ top: detail.arrowY }}
+      />
+      <div className="sp-head">
+        <span className="sp-eyebrow">{title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="sp-count">{songs.length} song{songs.length !== 1 ? 's' : ''}</span>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+      </div>
+      <div className="dp-body">
+        {songs.length === 0
+          ? <div className="dp-empty">No songs</div>
+          : songs.map(n => (
+              <div key={n.id} className="dp-song-row">
+                <div className="dp-song-title">{n.song_title}</div>
+                <div className="dp-song-meta">{n.artist}{n.year ? ` · ${n.year}` : ''}</div>
+              </div>
+            ))
+        }
+      </div>
+    </div>
+  );
+}
+
 export default function StatsPanel({ nodes, onClose }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
+  const panelRef  = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const [detail, setDetail] = useState<DetailState | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (
+        panelRef.current && !panelRef.current.contains(target) &&
+        (!detailRef.current || !detailRef.current.contains(target))
+      ) onClose();
     };
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDown);
@@ -139,22 +240,65 @@ export default function StatsPanel({ nodes, onClose }: Props) {
     };
   }, [onClose]);
 
-  const genres      = useMemo(() => topN(nodes.map(n => n.genre), 5), [nodes]);
+  const genres       = useMemo(() => topN(nodes.map(n => n.genre), 5), [nodes]);
   const contributors = useMemo(() => topN(nodes.map(n => n.added_by), 5), [nodes]);
-  const artists     = useMemo(() => topN(nodes.map(n => n.artist), 5), [nodes]);
+  const artists      = useMemo(() => topN(nodes.map(n => n.artist), 5), [nodes]);
+
+  const computeArrowY = (el: Element): number => {
+    if (!panelRef.current) return 50;
+    const pr = panelRef.current.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    return er.top + er.height / 2 - pr.top;
+  };
+
+  const handleClick = (type: DetailState['type'], value: string | number, el: Element) => {
+    const arrowY = computeArrowY(el);
+    setDetail(prev =>
+      prev?.type === type && prev.value === value ? null : { type, value, arrowY }
+    );
+  };
 
   return (
-    <div className="sp-panel" ref={ref}>
-      <div className="sp-head">
-        <span className="sp-eyebrow">Statistics</span>
-        <button className="modal-close" onClick={onClose}>×</button>
+    <>
+      <div className="sp-panel" ref={panelRef}>
+        <div className="sp-head">
+          <span className="sp-eyebrow">Statistics</span>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="sp-body">
+          <StatList
+            title="Top Genres"
+            items={genres}
+            activeLabel={detail?.type === 'genre' ? String(detail.value) : undefined}
+            onItemClick={(label, el) => handleClick('genre', label, el)}
+          />
+          <StatList
+            title="Top Contributors"
+            items={contributors}
+            activeLabel={detail?.type === 'contributor' ? String(detail.value) : undefined}
+            onItemClick={(label, el) => handleClick('contributor', label, el)}
+          />
+          <StatList
+            title="Top Artists"
+            items={artists}
+            activeLabel={detail?.type === 'artist' ? String(detail.value) : undefined}
+            onItemClick={(label, el) => handleClick('artist', label, el)}
+          />
+          <DecadeChart
+            nodes={nodes}
+            activeDecade={detail?.type === 'decade' ? Number(detail.value) : undefined}
+            onDecadeClick={(decade, el) => handleClick('decade', decade, el)}
+          />
+        </div>
       </div>
-      <div className="sp-body">
-        <StatList title="Top Genres" items={genres} />
-        <StatList title="Top Contributors" items={contributors} />
-        <StatList title="Top Artists" items={artists} />
-        <DecadeChart nodes={nodes} />
-      </div>
-    </div>
+      {detail && (
+        <DetailPanel
+          detail={detail}
+          nodes={nodes}
+          detailRef={detailRef}
+          onClose={() => setDetail(null)}
+        />
+      )}
+    </>
   );
 }

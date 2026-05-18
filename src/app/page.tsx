@@ -639,6 +639,37 @@ export default function HomePage() {
     animRef.current = requestAnimationFrame(tick);
   }, [clampX, clampY, applyPan]);
 
+  const animateToWithZoom = useCallback((targetX: number, targetY: number, targetZoom: number) => {
+    cancelAnim(); cancelInertia();
+    const sz = zoomRef.current;
+    const ez = Math.min(2, Math.max(0.1, targetZoom));
+    const sx = panRef.current.x;
+    const sy = panRef.current.y;
+    const panDist = Math.hypot(clampX(targetX) - sx, clampY(targetY) - sy);
+    const dur = Math.min(1400, Math.max(380, panDist / 1.4));
+    const t0 = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      const curZ = sz + (ez - sz) * e;
+      zoomRef.current = curZ;
+      const ex = clampX(targetX);
+      const ey = clampY(targetY);
+      const cx = sx + (ex - sx) * e;
+      const cy = sy + (ey - sy) * e;
+      panRef.current.x = cx;
+      panRef.current.y = cy;
+      if (spineRef.current) {
+        spineRef.current.style.transformOrigin = '0 0';
+        spineRef.current.style.transform = `translate3d(${Math.round(cx)}px, ${Math.round(cy)}px, 0) scale(${curZ})`;
+      }
+      setZoom(curZ);
+      if (p < 1) animRef.current = requestAnimationFrame(tick);
+      else animRef.current = null;
+    };
+    animRef.current = requestAnimationFrame(tick);
+  }, [clampX, clampY]);
+
   const centreOn = useCallback((node: { xs: number; lane: number; subLane?: number }) =>
     animateTo(viewportW / 2 - xOf(node) * zoomRef.current, viewportH / 2 - yOf(node) * zoomRef.current),
   [animateTo, viewportW, viewportH, xOf, yOf]); // eslint-disable-line
@@ -1316,6 +1347,25 @@ const [activeId, setActiveId] = useState<string | null>(null);
                     <span className="head-meta-key">added</span>
                     <span className="head-meta-val">{timeAgo(head.createdAt)}</span>
                   </span>
+                  <button
+                    className="head-locate-btn"
+                    title="Locate HEAD node at 100% zoom"
+                    onClick={() => {
+                      const targetPanX = viewportW / 2 - xOf(head);
+                      const targetPanY = viewportH / 2 - yOf(head);
+                      animateToWithZoom(targetPanX, targetPanY, 1);
+                      setHasMoved(true);
+                    }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                      <circle cx="5.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.1" />
+                      <line x1="5.5" y1="0" x2="5.5" y2="2.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                      <line x1="5.5" y1="8.5" x2="5.5" y2="11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                      <line x1="0" y1="5.5" x2="2.5" y2="5.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                      <line x1="8.5" y1="5.5" x2="11" y2="5.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                    </svg>
+                    locate
+                  </button>
                 </div>
                 <div className="head-links">
                   <a href={`https://www.youtube.com/results?search_query=${q}`} target="_blank" rel="noreferrer" className="head-btn yt">
