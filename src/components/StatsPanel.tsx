@@ -199,7 +199,7 @@ function DetailPanel({
       <div className="sp-head">
         <span className="sp-eyebrow">{title}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="sp-count">{songs.length} song{songs.length !== 1 ? 's' : ''}</span>
+          <span className="sp-count" style={{ marginRight: 6 }}>{songs.length} song{songs.length !== 1 ? 's' : ''}</span>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
       </div>

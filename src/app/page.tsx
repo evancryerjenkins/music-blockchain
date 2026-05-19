@@ -1354,6 +1354,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                       const targetPanX = viewportW / 2 - xOf(head);
                       const targetPanY = viewportH / 2 - yOf(head);
                       animateToWithZoom(targetPanX, targetPanY, 1);
+                      setActiveId(head.id);
                       setHasMoved(true);
                     }}
                   >
