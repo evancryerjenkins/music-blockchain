@@ -1,7 +1,7 @@
 // TEMPORARY DEBUG — delete after investigating 403
 import { NextResponse } from 'next/server';
 
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(): Promise<Record<string, unknown>> {
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
@@ -15,7 +15,7 @@ async function getAccessToken(): Promise<string> {
 }
 
 export async function GET() {
-  const tokenData = await getAccessToken() as Record<string, unknown>;
+  const tokenData = await getAccessToken();
   const token = tokenData.access_token as string;
 
   const [meRes, playlistRes] = await Promise.all([
