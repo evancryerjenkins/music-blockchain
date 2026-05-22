@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS music_nodes (
   depth       INTEGER NOT NULL DEFAULT 0,
   added_by      TEXT,
   session_token TEXT,
+  spotify_uri   TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 

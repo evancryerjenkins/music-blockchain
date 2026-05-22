@@ -12,6 +12,7 @@ export interface MusicNode {
   added_by: string | null;
   session_token: string | null;
   created_at: string;
+  spotify_uri: string | null;
 }
 
 export interface ItunesTrack {
@@ -26,7 +27,7 @@ export interface ItunesTrack {
 }
 
 export interface SimilarityReason {
-  kind: 'word' | 'artist' | 'genre' | 'year';
+  kind: 'word' | 'artist' | 'genre' | 'year' | 'cross';
   value: string;
   label: string;
 }

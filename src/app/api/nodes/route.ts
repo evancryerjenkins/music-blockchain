@@ -6,6 +6,7 @@ import { MusicNode } from '@/lib/types';
 import { rateLimit } from '@/lib/rateLimit';
 import { getIp } from '@/lib/getIp';
 import { acquireSessionLock, releaseSessionLock } from '@/lib/sessionLock';
+import { lookupAndSaveSpotifyUri, syncSpotifyPlaylist } from '@/lib/spotify';
 
 function isAllowedUrl(url: unknown): boolean {
   if (url === undefined || url === null) return true;
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
       console.error('[POST /api/nodes] insert root', error);
       return NextResponse.json({ error: 'Failed to add root node.' }, { status: 500 });
     }
+    void lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
     return NextResponse.json({ node: data }, { status: 201 });
   }
 
@@ -156,18 +158,11 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  // Reject if the song already appears in this chain (ancestor path)
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  // Reject if the song already exists anywhere in the tree
   const norm = (s: string) => s.toLowerCase().trim();
   const candidateKey = `${norm(song_title)}|||${norm(artist)}`;
-  let ancestor: MusicNode | undefined = parent;
-  let steps = 0;
-  while (ancestor && steps < 50) {
-    if (`${norm(ancestor.song_title)}|||${norm(ancestor.artist)}` === candidateKey) {
-      return NextResponse.json({ error: 'This song already appears in this chain.' }, { status: 400 });
-    }
-    ancestor = ancestor.parent_id ? nodeMap.get(ancestor.parent_id) : undefined;
-    steps++;
+  if (nodes.some(n => `${norm(n.song_title)}|||${norm(n.artist)}` === candidateKey)) {
+    return NextResponse.json({ error: 'This song is already in the tree.' }, { status: 400 });
   }
 
   const { data, error } = await supabase
@@ -196,6 +191,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Failed to add node.' }, { status: 500 });
   }
+  void lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
   return NextResponse.json({ node: data, similarity }, { status: 201 });
 
   } finally {

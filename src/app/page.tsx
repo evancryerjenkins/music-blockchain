@@ -427,6 +427,7 @@ function linkSentence(link: { kind: string; value: string } | null) {
   if (link.kind === 'artist') return <>same artist — <em>{link.value}</em></>;
   if (link.kind === 'year')   return <>released the same year — <em>{link.value}</em></>;
   if (link.kind === 'genre')  return <>same genre — <em>{link.value}</em></>;
+  if (link.kind === 'cross')  return <>shares <em>&ldquo;{link.value}&rdquo;</em> across title and artist</>;
   return null;
 }
 
@@ -516,23 +517,9 @@ export default function HomePage() {
   const laneOf  = useMemo(() => ana ? assignLanes(rawNodes, ana) : new Map<string, number>(), [ana, rawNodes]);
   const pluses  = useMemo(() => ana ? generatePluses(rawNodes, ana, laneOf) : [], [ana, laneOf, rawNodes]);
 
-  const ancestorSongs = useMemo((): { t: string; a: string }[] => {
-    if (!ana || !addingPlus?.parent) return [];
-    const songs: { t: string; a: string }[] = [];
-    let cur = ana.byId.get(addingPlus.parent);
-    let steps = 0;
-    while (cur && steps < 50) {
-      songs.push({ t: cur.t, a: cur.a });
-      cur = cur.parent ? ana.byId.get(cur.parent) : undefined;
-      steps++;
-    }
-    // Exclude all existing children — no two siblings can be the same song.
-    for (const kidId of ana.kidsOf.get(addingPlus.parent) ?? []) {
-      const kid = ana.byId.get(kidId);
-      if (kid) songs.push({ t: kid.t, a: kid.a });
-    }
-    return songs;
-  }, [ana, addingPlus]);
+  const existingNodes = useMemo((): { t: string; a: string }[] =>
+    rawNodes.map(n => ({ t: n.t, a: n.a })),
+  [rawNodes]);
 
   const decorated = useMemo((): DecoratedNode[] => {
     if (!ana) return [];
@@ -1090,6 +1077,16 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <button className="stats-btn" onClick={() => setShowStats(s => !s)}>
             stats
           </button>
+          {process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST_ID && (
+            <a
+              className="stats-btn spotify-btn"
+              href={`https://open.spotify.com/playlist/${process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST_ID}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-label="Spotify"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.297c-.215.35-.676.46-1.025.244-2.808-1.715-6.341-2.102-10.503-1.15-.4.092-.8-.158-.892-.558-.092-.4.158-.8.558-.892 4.556-1.04 8.464-.593 11.618 1.331.349.216.46.677.244 1.025zm1.472-3.272c-.27.44-.846.578-1.285.307-3.213-1.975-8.113-2.547-11.913-1.394-.494.15-1.015-.13-1.164-.623-.149-.493.131-1.015.624-1.163 4.344-1.318 9.74-.68 13.43 1.588.44.27.578.846.308 1.285zm.126-3.407c-3.854-2.29-10.211-2.499-13.888-1.382-.59.179-1.214-.154-1.393-.744-.179-.59.155-1.214.744-1.393 4.226-1.283 11.252-1.034 15.688 1.597.531.315.706 1.003.39 1.534-.314.531-1.002.706-1.541.388z"/></svg>
+            </a>
+          )}
           {showStats && <StatsPanel nodes={apiNodes} onClose={() => setShowStats(false)} />}
         </div>
       </div>
@@ -1439,7 +1436,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
         <AddSongModal
           plus={addingPlus}
           parent={byIdDeco.get(addingPlus.parent)!}
-          ancestorSongs={ancestorSongs}
+          existingNodes={existingNodes}
           onClose={() => { setAddingPlus(null); setAddError(null); }}
           onAdd={handleAdd}
           externalError={addError}

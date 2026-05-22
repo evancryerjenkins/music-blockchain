@@ -68,6 +68,9 @@ html, body {
   100% { box-shadow: 0 0 0 1px var(--ink); }
 }
 
+.spotify-btn { border-color: transparent !important; box-shadow: none !important; padding: 2px 4px; }
+.spotify-btn:hover { border-color: transparent !important; box-shadow: none !important; animation: none; }
+
 /* ----- Stats panel ----- */
 .sp-panel {
   position: absolute; top: calc(100% + 12px); right: 0;

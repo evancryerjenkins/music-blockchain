@@ -39,6 +39,14 @@ export function checkSimilarity(
   if (sharedArtist)
     reasons.push({ kind: 'artist', value: sharedArtist, label: `Same or related artist ("${sharedArtist}")` });
 
+  const crossTA = wordOverlap(parentTitle, candidateArtist);
+  if (crossTA)
+    reasons.push({ kind: 'cross', value: crossTA, label: `"${crossTA}" links parent title to this artist` });
+
+  const crossAT = wordOverlap(parentArtist, candidateTitle);
+  if (crossAT)
+    reasons.push({ kind: 'cross', value: crossAT, label: `"${crossAT}" links parent artist to this title` });
+
   if (parentGenre && candidateGenre) {
     const g1 = parentGenre.toLowerCase();
     const g2 = candidateGenre.toLowerCase();
