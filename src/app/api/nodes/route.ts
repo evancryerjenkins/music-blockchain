@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       console.error('[POST /api/nodes] insert root', error);
       return NextResponse.json({ error: 'Failed to add root node.' }, { status: 500 });
     }
-    void lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
+    await lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
     return NextResponse.json({ node: data }, { status: 201 });
   }
 
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Failed to add node.' }, { status: 500 });
   }
-  void lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
+  await lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
   return NextResponse.json({ node: data, similarity }, { status: 201 });
 
   } finally {

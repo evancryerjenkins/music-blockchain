@@ -6,6 +6,7 @@
 //   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from '@supabase/supabase-js';
+import { syncSpotifyPlaylist } from '../src/lib/spotify';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,7 +53,13 @@ async function main() {
     .is('spotify_uri', null);
 
   if (error) throw new Error(`Failed to fetch nodes: ${error.message}`);
-  if (!nodes?.length) { console.log('All nodes already have Spotify URIs.'); return; }
+  if (!nodes?.length) {
+    console.log('All nodes already have Spotify URIs. Syncing playlist...');
+    const result = await syncSpotifyPlaylist();
+    if (result.ok) console.log(`Playlist synced — ${result.tracks} tracks.`);
+    else console.error(`Playlist sync failed: ${result.error}`);
+    return;
+  }
 
   console.log(`Backfilling ${nodes.length} nodes...`);
   const token = await getAccessToken();
@@ -79,6 +86,11 @@ async function main() {
   }
 
   console.log(`\nDone. Found: ${found}, not found: ${notFound}`);
+
+  console.log('\nSyncing playlist with main chain...');
+  const result = await syncSpotifyPlaylist();
+  if (result.ok) console.log(`Playlist synced — ${result.tracks} tracks.`);
+  else console.error(`Playlist sync failed: ${result.error}`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
