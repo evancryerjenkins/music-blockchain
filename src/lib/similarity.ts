@@ -3,7 +3,7 @@ import { SimilarityResult, SimilarityReason } from './types';
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
   'of', 'with', 'by', 'from', 'is', 'was', 'are', 'be', 'as', 'my', 'me',
-  'i', 'it', 'its', 'you', 'we', 'he', 'she', 'they', 'not', 'no', 'so',
+  'i', 'it', 'its', 'you', 'he', 'she', 'they', 'not', 'no', 'so',
 ]);
 
 function getSignificantWords(text: string): string[] {
