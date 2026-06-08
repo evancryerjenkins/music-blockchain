@@ -24,13 +24,13 @@ interface AddResult {
   track: ItunesTrack & { year: number | null };
   reasons: SimilarityReason[];
   link: SimilarityReason;
-  addedBy: string;
 }
 
 interface Props {
   plus: PlusNode;
   parent: RawNode;
   existingNodes: { t: string; a: string }[];
+  displayName: string;
   onClose: () => void;
   onAdd: (result: AddResult) => void;
   externalError?: string | null;
@@ -38,22 +38,17 @@ interface Props {
 
 const norm = (s: string) => s.toLowerCase().trim();
 
-export default function AddSongModal({ plus, parent, existingNodes, onClose, onAdd, externalError }: Props) {
+export default function AddSongModal({ plus, parent, existingNodes, displayName, onClose, onAdd, externalError }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<(ItunesTrack & { year: number | null })[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<(ItunesTrack & { year: number | null }) | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState(() => {
-    try { return localStorage.getItem('music_blockchain_username') ?? ''; } catch { return ''; }
-  });
   const inputRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    if (name.trim()) inputRef.current?.focus();
-    else nameRef.current?.focus();
+    inputRef.current?.focus();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -95,13 +90,11 @@ export default function AddSongModal({ plus, parent, existingNodes, onClose, onA
     checkSimilarity(parent.t, parent.a, parent.g || null, parent.y, track.trackName, track.artistName, track.primaryGenreName || null, track.year);
 
   const similarity = selected ? getSimilarity(selected) : null;
-  const canAdd = !!selected && (similarity?.matches ?? false) && name.trim().length > 0;
+  const canAdd = !!selected && (similarity?.matches ?? false);
 
   function handleAdd() {
     if (!canAdd || !selected || !similarity) return;
-    const trimmedName = name.trim();
-    try { localStorage.setItem('music_blockchain_username', trimmedName); } catch {}
-    onAdd({ track: selected, reasons: similarity.reasons, link: similarity.reasons[0], addedBy: trimmedName });
+    onAdd({ track: selected, reasons: similarity.reasons, link: similarity.reasons[0] });
   }
 
   return (
@@ -130,19 +123,6 @@ export default function AddSongModal({ plus, parent, existingNodes, onClose, onA
             </span>
           </div>
           <div className="modal-parent-rule">Must share a <b>title word</b>, <b>artist</b>, <b>genre</b>, or <b>year</b></div>
-        </div>
-
-        <div className="modal-name">
-          <label htmlFor="contributor-name">Your name</label>
-          <input
-            ref={nameRef}
-            id="contributor-name"
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Enter your name…"
-            maxLength={100}
-          />
         </div>
 
         <div className="modal-search">

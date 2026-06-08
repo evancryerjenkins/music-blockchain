@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createHash } from 'crypto';
 import { checkSimilarity } from '@/lib/similarity';
 import { MusicNode } from '@/lib/types';
 import { rateLimit } from '@/lib/rateLimit';
@@ -21,7 +20,7 @@ function isAllowedUrl(url: unknown): boolean {
 }
 
 function validateBody(body: Record<string, unknown>): string | null {
-  const { song_title, artist, genre, year, album_art, itunes_url, preview_url, added_by } = body;
+  const { song_title, artist, genre, year, album_art, itunes_url, preview_url } = body;
   if (typeof song_title !== 'string' || song_title.trim().length === 0 || song_title.length > 500)
     return 'song_title must be a non-empty string under 500 characters.';
   if (typeof artist !== 'string' || artist.trim().length === 0 || artist.length > 500)
@@ -33,13 +32,7 @@ function validateBody(body: Record<string, unknown>): string | null {
   if (!isAllowedUrl(album_art))   return 'album_art must be an Apple/iTunes URL.';
   if (!isAllowedUrl(itunes_url))  return 'itunes_url must be an Apple/iTunes URL.';
   if (!isAllowedUrl(preview_url)) return 'preview_url must be an Apple/iTunes URL.';
-  if (typeof added_by !== 'string' || added_by.trim().length === 0 || added_by.length > 100)
-    return 'added_by must be a non-empty name under 100 characters.';
   return null;
-}
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
 }
 
 function getSupabase() {
@@ -70,7 +63,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
   }
 
+  // Verify auth
+  const authHeader = req.headers.get('Authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    return NextResponse.json({ error: 'You must be logged in to add songs.' }, { status: 401 });
+  }
+
   const supabase = getSupabase();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Invalid or expired session. Please log in again.' }, { status: 401 });
+  }
+
+  const userId = user.id;
+  const addedBy: string = (user.user_metadata?.display_name as string | undefined)?.trim() || user.email || 'Unknown';
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -81,19 +89,13 @@ export async function POST(req: NextRequest) {
   const validationError = validateBody(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
-  const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url, added_by, session_token } = body as {
+  const { parent_id, song_title, artist, genre, year, album_art, itunes_url, preview_url } = body as {
     parent_id?: string; song_title: string; artist: string;
     genre?: string | null; year?: number | null;
     album_art?: string | null; itunes_url?: string | null; preview_url?: string | null;
-    added_by: string; session_token?: string;
   };
 
-  if (typeof session_token !== 'string' || session_token.trim().length === 0 || session_token.length > 128) {
-    return NextResponse.json({ error: 'Missing session token.' }, { status: 400 });
-  }
-  const hashedToken = hashToken(session_token);
-
-  if (!await acquireSessionLock(session_token)) {
+  if (!await acquireSessionLock(userId)) {
     return NextResponse.json({ error: 'Another submission from this session is in progress.' }, { status: 429 });
   }
 
@@ -108,12 +110,12 @@ export async function POST(req: NextRequest) {
 
   const nodes: MusicNode[] = allNodes || [];
 
-  // Prevent same session adding two nodes in a row
+  // Prevent same user adding two nodes in a row
   if (nodes.length > 0) {
     const lastNode = nodes.reduce((a, b) =>
       new Date(a.created_at) > new Date(b.created_at) ? a : b
     );
-    if (lastNode.session_token === hashedToken) {
+    if (lastNode.session_token === userId) {
       return NextResponse.json(
         { error: 'Someone else must add a song before you can add another.' },
         { status: 429 }
@@ -128,7 +130,7 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase
       .from('music_nodes')
-      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: added_by.trim(), session_token: hashedToken })
+      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: addedBy, session_token: userId })
       .select()
       .single();
     if (error) {
@@ -177,15 +179,14 @@ export async function POST(req: NextRequest) {
       preview_url,
       parent_id,
       depth: parent.depth + 1,
-      added_by: added_by.trim(),
-      session_token: hashedToken,
+      added_by: addedBy,
+      session_token: userId,
     })
     .select()
     .single();
 
   if (error) {
     console.error('[POST /api/nodes] insert', error);
-    // Surface duplicate-child error specifically so the client can give a useful message
     if (error.code === '23505') {
       return NextResponse.json({ error: 'This song has already been added under this parent.' }, { status: 409 });
     }
@@ -195,6 +196,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ node: data, similarity }, { status: 201 });
 
   } finally {
-    await releaseSessionLock(session_token);
+    await releaseSessionLock(userId);
   }
 }

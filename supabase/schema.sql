@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS music_nodes (
   depth       INTEGER NOT NULL DEFAULT 0,
   added_by      TEXT,
   session_token TEXT,
+  user_id       UUID REFERENCES auth.users,
   spotify_uri   TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -26,13 +27,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_music_nodes_unique_child
   ON music_nodes (parent_id, lower(song_title), lower(artist))
   WHERE parent_id IS NOT NULL;
 
--- Allow public read + insert (no auth required)
 ALTER TABLE music_nodes ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public read" ON music_nodes FOR SELECT USING (true);
 
--- Enforce field length limits at the DB layer
-CREATE POLICY "Public insert" ON music_nodes FOR INSERT WITH CHECK (
+-- Only authenticated users may insert; enforce field length limits at the DB layer
+CREATE POLICY "Authenticated insert" ON music_nodes FOR INSERT WITH CHECK (
+  auth.uid() IS NOT NULL AND
   char_length(song_title) BETWEEN 1 AND 500 AND
   char_length(artist)     BETWEEN 1 AND 500 AND
   (genre       IS NULL OR char_length(genre)       <= 100) AND

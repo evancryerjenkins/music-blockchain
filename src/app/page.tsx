@@ -4,18 +4,14 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } fr
 import { MusicNode, ItunesTrack, SimilarityReason } from '@/lib/types';
 import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
+import AuthModal from '@/components/AuthModal';
 import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
 import StatsPanel from '@/components/StatsPanel';
+import type { Session } from '@supabase/supabase-js';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
-
-async function hashTokenClient(token: string): Promise<string> {
-  const data = new TextEncoder().encode(token);
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 function timeAgo(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -459,18 +455,20 @@ export default function HomePage() {
   const [addError, setAddError]   = useState<string | null>(null);
   const [showStats, setShowStats]  = useState(false);
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
-  const sessionToken = useRef<string>('');
-  const [hashedToken, setHashedToken] = useState<string>('');
+  const [session, setSession] = useState<Session | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+
   useEffect(() => {
-    const KEY = 'music_blockchain_session';
-    let token: string;
-    try {
-      const stored = localStorage.getItem(KEY);
-      token = stored ?? crypto.randomUUID();
-      if (!stored) localStorage.setItem(KEY, token);
-    } catch { token = crypto.randomUUID(); }
-    sessionToken.current = token;
-    hashTokenClient(token).then(setHashedToken);
+    async function initAuth() {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+        return () => subscription.unsubscribe();
+      } catch { /* supabase not configured */ }
+    }
+    initAuth();
   }, []);
 
   /* Fetch nodes on mount */
@@ -820,7 +818,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
   }, [activeId, ana, byIdDeco, centreOn]);
 
   /* Add song handler */
-  async function handleAdd({ track, addedBy }: { track: ItunesTrack & { year: number | null }; reasons: SimilarityReason[]; link: SimilarityReason; addedBy: string }) {
+  async function handleAdd({ track }: { track: ItunesTrack & { year: number | null }; reasons: SimilarityReason[]; link: SimilarityReason }) {
     if (!addingPlus || !ana) return;
     const plus = addingPlus;
 
@@ -834,7 +832,10 @@ const [activeId, setActiveId] = useState<string | null>(null);
     try {
       const res = await fetch('/api/nodes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           parent_id: plus.parent,
           song_title: track.trackName,
@@ -844,8 +845,6 @@ const [activeId, setActiveId] = useState<string | null>(null);
           album_art: track.artworkUrl100 || null,
           itunes_url: track.trackViewUrl || null,
           preview_url: track.previewUrl || null,
-          added_by: addedBy,
-          session_token: sessionToken.current || undefined,
         }),
       });
       const data = await res.json();
@@ -890,7 +889,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
   const lastNode = apiNodes.length > 0
     ? apiNodes.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
     : null;
-  const userIsBlocked = !!(lastNode && hashedToken && lastNode.session_token === hashedToken);
+  const userIsBlocked = !!(lastNode && session && lastNode.session_token === session.user.id);
 
   /* Hover card focus */
   const allNodes = [...decorated, ...pluses];
@@ -1009,6 +1008,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <h2>The chain is empty</h2>
           <p>Be the first to plant a seed. Pick any song to start the music blockchain.</p>
           <button className="btn-seed" onClick={() => {
+            if (!session) { setShowAuth(true); return; }
             const seedPlus: PlusNode = { id: '+seed', parent: '', xs: 0, lane: 0, kind: 'extend-main' };
             const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null, addedBy: null, createdAt: '' };
             setAddingPlus(seedPlus);
@@ -1019,12 +1019,15 @@ const [activeId, setActiveId] = useState<string | null>(null);
         {addingPlus && (
           <SeedModal
             onClose={() => setAddingPlus(null)}
-            onAdd={async (track, addedBy) => {
+            onAdd={async (track) => {
               setSubmitting(true);
               try {
                 const res = await fetch('/api/nodes', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                  },
                   body: JSON.stringify({
                     parent_id: null,
                     song_title: track.trackName,
@@ -1034,8 +1037,6 @@ const [activeId, setActiveId] = useState<string | null>(null);
                     album_art: track.artworkUrl100 || null,
                     itunes_url: track.trackViewUrl || null,
                     preview_url: track.previewUrl || null,
-                    added_by: addedBy,
-                    session_token: sessionToken.current || undefined,
                   }),
                 });
                 const data = await res.json();
@@ -1048,6 +1049,9 @@ const [activeId, setActiveId] = useState<string | null>(null);
               }
             }}
           />
+        )}
+        {showAuth && (
+          <AuthModal onSuccess={() => setShowAuth(false)} onClose={() => setShowAuth(false)} />
         )}
       </div>
     );
@@ -1077,6 +1081,19 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <button className="stats-btn" onClick={() => setShowStats(s => !s)}>
             stats
           </button>
+          {session ? (
+            <>
+              <span style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {session.user.user_metadata?.display_name ?? session.user.email}
+              </span>
+              <button className="stats-btn" onClick={async () => {
+                const { supabase } = await import('@/lib/supabase');
+                supabase.auth.signOut();
+              }}>sign out</button>
+            </>
+          ) : (
+            <button className="stats-btn" onClick={() => setShowAuth(true)}>log in</button>
+          )}
           {process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST_ID && (
             <a
               className="stats-btn spotify-btn"
@@ -1178,6 +1195,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
                    onClick={e => {
                      e.stopPropagation();
                      if (userIsBlocked) return;
+                     if (!session) { setShowAuth(true); return; }
                      setActiveId(p.id);
                      setHoverId(null);
                      setAddError(null);
@@ -1437,6 +1455,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           plus={addingPlus}
           parent={byIdDeco.get(addingPlus.parent)!}
           existingNodes={existingNodes}
+          displayName={session?.user?.user_metadata?.display_name ?? session?.user?.email ?? ''}
           onClose={() => { setAddingPlus(null); setAddError(null); }}
           onAdd={handleAdd}
           externalError={addError}
@@ -1451,6 +1470,13 @@ const [activeId, setActiveId] = useState<string | null>(null);
       )}
 
       {showWelcome && <WelcomeScreen onDismiss={dismissWelcome} />}
+
+      {showAuth && (
+        <AuthModal
+          onSuccess={() => setShowAuth(false)}
+          onClose={() => setShowAuth(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1461,22 +1487,17 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
 function SeedModal({ onClose, onAdd }: {
   onClose: () => void;
-  onAdd: (track: (ItunesTrack & { year: number | null }), addedBy: string) => void;
+  onAdd: (track: (ItunesTrack & { year: number | null })) => void;
 }) {
   const [query, setQuery]       = useState('');
   const [results, setResults]   = useState<(ItunesTrack & { year: number | null })[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<(ItunesTrack & { year: number | null }) | null>(null);
-  const [name, setName] = useState(() => {
-    try { return localStorage.getItem('music_blockchain_username') ?? ''; } catch { return ''; }
-  });
   const inputRef = useRef<HTMLInputElement>(null);
-  const nameRef  = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    if (name.trim()) inputRef.current?.focus();
-    else nameRef.current?.focus();
+    inputRef.current?.focus();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -1514,18 +1535,6 @@ function SeedModal({ onClose, onAdd }: {
           </div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <div className="modal-name">
-          <label htmlFor="seed-contributor-name">Your name</label>
-          <input
-            ref={nameRef}
-            id="seed-contributor-name"
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Enter your name…"
-            maxLength={100}
-          />
-        </div>
         <div className="modal-search">
           <span className="icon">
             <svg viewBox="0 0 14 14" fill="none" width="14" height="14">
@@ -1561,11 +1570,9 @@ function SeedModal({ onClose, onAdd }: {
         <div className="modal-foot">
           <div className="actions">
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!selected || !name.trim()} onClick={() => {
-              if (!selected || !name.trim()) return;
-              const trimmedName = name.trim();
-              try { localStorage.setItem('music_blockchain_username', trimmedName); } catch {}
-              onAdd(selected, trimmedName);
+            <button className="btn primary" disabled={!selected} onClick={() => {
+              if (!selected) return;
+              onAdd(selected);
             }}>
               Plant this Song
             </button>
