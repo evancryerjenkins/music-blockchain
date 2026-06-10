@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MusicNode } from '@/lib/types';
 
 interface Props {
   nodes: MusicNode[];
+  title?: string;
+  panelStyle?: React.CSSProperties;
+  arrowY?: number;
+  contributionCount?: number;
   onClose: () => void;
 }
 
@@ -166,11 +170,13 @@ function DetailPanel({
   detail,
   nodes,
   detailRef,
+  right,
   onClose,
 }: {
   detail: DetailState;
   nodes: MusicNode[];
   detailRef: React.RefObject<HTMLDivElement>;
+  right?: number;
   onClose: () => void;
 }) {
   const songs = useMemo(() => {
@@ -191,7 +197,7 @@ function DetailPanel({
   const title = detail.type === 'decade' ? `${detail.value}s` : String(detail.value);
 
   return (
-    <div className="dp-panel" ref={detailRef}>
+    <div className="dp-panel" ref={detailRef} style={right !== undefined ? { right } : undefined}>
       <div
         className="dp-arrow"
         style={{ top: detail.arrowY }}
@@ -218,10 +224,12 @@ function DetailPanel({
   );
 }
 
-export default function StatsPanel({ nodes, onClose }: Props) {
+export default function StatsPanel({ nodes, title = 'Statistics', panelStyle, arrowY, contributionCount, onClose }: Props) {
   const panelRef  = useRef<HTMLDivElement>(null);
   const detailRef = useRef<HTMLDivElement>(null);
   const [detail, setDetail] = useState<DetailState | null>(null);
+  const panelRight = typeof panelStyle?.right === 'number' ? panelStyle.right : 0;
+  const detailRight = panelRight + 372;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -260,9 +268,10 @@ export default function StatsPanel({ nodes, onClose }: Props) {
 
   return (
     <>
-      <div className="sp-panel" ref={panelRef}>
+      <div className="sp-panel" ref={panelRef} style={panelStyle}>
+        {arrowY != null && <div className="dp-arrow" style={{ top: arrowY }} />}
         <div className="sp-head">
-          <span className="sp-eyebrow">Statistics</span>
+          <span className="sp-eyebrow">{title}</span>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="sp-body">
@@ -272,12 +281,22 @@ export default function StatsPanel({ nodes, onClose }: Props) {
             activeLabel={detail?.type === 'genre' ? String(detail.value) : undefined}
             onItemClick={(label, el) => handleClick('genre', label, el)}
           />
-          <StatList
-            title="Top Contributors"
-            items={contributors}
-            activeLabel={detail?.type === 'contributor' ? String(detail.value) : undefined}
-            onItemClick={(label, el) => handleClick('contributor', label, el)}
-          />
+          {contributionCount !== undefined ? (
+            <div className="sp-section">
+              <div className="sp-section-title">User Contributions</div>
+              <div className="sp-row">
+                <span className="sp-label" style={{ maxWidth: 'none', flex: 1 }}>Songs added</span>
+                <span className="sp-count" style={{ width: 'auto' }}>{contributionCount}</span>
+              </div>
+            </div>
+          ) : (
+            <StatList
+              title="Top Contributors"
+              items={contributors}
+              activeLabel={detail?.type === 'contributor' ? String(detail.value) : undefined}
+              onItemClick={(label, el) => handleClick('contributor', label, el)}
+            />
+          )}
           <StatList
             title="Top Artists"
             items={artists}
@@ -296,6 +315,7 @@ export default function StatsPanel({ nodes, onClose }: Props) {
           detail={detail}
           nodes={nodes}
           detailRef={detailRef}
+          right={detailRight}
           onClose={() => setDetail(null)}
         />
       )}

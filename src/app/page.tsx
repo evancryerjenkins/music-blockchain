@@ -5,8 +5,8 @@ import { MusicNode, ItunesTrack, SimilarityReason } from '@/lib/types';
 import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
 import AuthModal from '@/components/AuthModal';
+import UserMenu from '@/components/UserMenu';
 import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
-import StatsPanel from '@/components/StatsPanel';
 import type { Session } from '@supabase/supabase-js';
 
 /* ------------------------------------------------------------------ */
@@ -453,7 +453,6 @@ export default function HomePage() {
   const [addingPlus, setAddingPlus] = useState<PlusNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError]   = useState<string | null>(null);
-  const [showStats, setShowStats]  = useState(false);
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
   const [session, setSession] = useState<Session | null>(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -1078,22 +1077,6 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <span className="dead-c"><b>{deadCount}</b>&nbsp; dead</span>
           <span><b>{decorated.length}</b>&nbsp; total</span>
           <span><b>{contributorCount}</b>&nbsp; contributors</span>
-          <button className="stats-btn" onClick={() => setShowStats(s => !s)}>
-            stats
-          </button>
-          {session ? (
-            <>
-              <span style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {session.user.user_metadata?.display_name ?? session.user.email}
-              </span>
-              <button className="stats-btn" onClick={async () => {
-                const { supabase } = await import('@/lib/supabase');
-                supabase.auth.signOut();
-              }}>sign out</button>
-            </>
-          ) : (
-            <button className="stats-btn" onClick={() => setShowAuth(true)}>log in</button>
-          )}
           {process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST_ID && (
             <a
               className="stats-btn spotify-btn"
@@ -1104,7 +1087,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-label="Spotify"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.297c-.215.35-.676.46-1.025.244-2.808-1.715-6.341-2.102-10.503-1.15-.4.092-.8-.158-.892-.558-.092-.4.158-.8.558-.892 4.556-1.04 8.464-.593 11.618 1.331.349.216.46.677.244 1.025zm1.472-3.272c-.27.44-.846.578-1.285.307-3.213-1.975-8.113-2.547-11.913-1.394-.494.15-1.015-.13-1.164-.623-.149-.493.131-1.015.624-1.163 4.344-1.318 9.74-.68 13.43 1.588.44.27.578.846.308 1.285zm.126-3.407c-3.854-2.29-10.211-2.499-13.888-1.382-.59.179-1.214-.154-1.393-.744-.179-.59.155-1.214.744-1.393 4.226-1.283 11.252-1.034 15.688 1.597.531.315.706 1.003.39 1.534-.314.531-1.002.706-1.541.388z"/></svg>
             </a>
           )}
-          {showStats && <StatsPanel nodes={apiNodes} onClose={() => setShowStats(false)} />}
+          <UserMenu session={session} nodes={apiNodes} onShowAuth={() => setShowAuth(true)} />
         </div>
       </div>
 

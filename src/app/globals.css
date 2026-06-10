@@ -26,7 +26,7 @@ html, body {
 .chrome-top {
   position: absolute; top: 0; left: 0; right: 0;
   display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 28px 36px; z-index: 5; pointer-events: none;
+  padding: 28px 36px; z-index: 6; pointer-events: none;
 }
 .chrome-top > * { pointer-events: auto; }
 .brand { display: flex; align-items: baseline; gap: 12px; }
@@ -881,6 +881,44 @@ html, body {
   text-underline-offset: 2px;
 }
 .auth-switch-link:hover { opacity: 0.7; }
+
+/* ----- User menu panel ----- */
+.um-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 200px;
+  background: var(--bg);
+  border: 1px solid var(--ink);
+  z-index: 50;
+  animation: slideIn 200ms cubic-bezier(.2,.7,.2,1.05) both;
+}
+.um-body {
+  padding: 6px 0;
+}
+.um-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+.um-item:hover { background: var(--rule-2); }
+.um-item-active { background: var(--accent-soft); }
+.um-item-active:hover { background: var(--accent-soft); }
+.um-item-muted { color: var(--muted); }
+.um-divider {
+  height: 1px;
+  background: var(--rule);
+  margin: 4px 0;
+}
 
 /* ----- Zoom control ----- */
 .zoom-control {

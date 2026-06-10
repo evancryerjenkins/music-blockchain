@@ -11,6 +11,7 @@ export interface MusicNode {
   depth: number;
   added_by: string | null;
   session_token: string | null;
+  user_id: string | null;
   created_at: string;
   spotify_uri: string | null;
 }
