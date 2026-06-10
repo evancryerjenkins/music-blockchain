@@ -17,28 +17,54 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
   const [open, setOpen] = useState(false);
   const [statsMode, setStatsMode] = useState<'user' | 'chain' | null>(null);
   const [arrowY, setArrowY] = useState(0);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [prefsArrowY, setPrefsArrowY] = useState(0);
+  const [darkMode, setDarkMode] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Load dark mode preference on mount
   useEffect(() => {
-    if (!open && !statsMode) return;
+    const saved = localStorage.getItem('darkMode') === 'true';
+    if (saved) {
+      setDarkMode(true);
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open && !statsMode && !prefsOpen) return;
     const onDown = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
         setStatsMode(null);
+        setPrefsOpen(false);
       }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [open, statsMode]);
+  }, [open, statsMode, prefsOpen]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpen(false); setStatsMode(null); }
+      if (e.key === 'Escape') { setOpen(false); setStatsMode(null); setPrefsOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  const toggleDarkMode = () => {
+    setDarkMode(d => {
+      const next = !d;
+      if (next) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      localStorage.setItem('darkMode', String(next));
+      return next;
+    });
+  };
 
   if (!session) {
     return (
@@ -60,13 +86,20 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
   const handleStatItem = (mode: 'user' | 'chain', el: Element) => {
     setArrowY(computeArrowY(el));
     setStatsMode(prev => prev === mode ? null : mode);
+    setPrefsOpen(false);
+  };
+
+  const handlePrefsItem = (el: Element) => {
+    setPrefsArrowY(computeArrowY(el));
+    setPrefsOpen(prev => !prev);
+    setStatsMode(null);
   };
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
       <button
         className="stats-btn"
-        onClick={() => { setOpen(o => !o); setStatsMode(null); }}
+        onClick={() => { setOpen(o => !o); setStatsMode(null); setPrefsOpen(false); }}
       >
         {displayName}
       </button>
@@ -75,7 +108,7 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
         <div className="um-panel" ref={panelRef}>
           <div className="sp-head">
             <span className="sp-eyebrow">Account</span>
-            <button className="modal-close" onClick={() => { setOpen(false); setStatsMode(null); }}>×</button>
+            <button className="modal-close" onClick={() => { setOpen(false); setStatsMode(null); setPrefsOpen(false); }}>×</button>
           </div>
           <div className="um-body">
             <button
@@ -90,12 +123,19 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
             >
               Blockchain Stats
             </button>
+            <button
+              className={'um-item' + (prefsOpen ? ' um-item-active' : '')}
+              onClick={e => handlePrefsItem(e.currentTarget)}
+            >
+              Preferences
+            </button>
             <div className="um-divider" />
             <button
               className="um-item um-item-muted"
               onClick={() => {
                 setOpen(false);
                 setStatsMode(null);
+                setPrefsOpen(false);
                 import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut());
               }}
             >
@@ -123,6 +163,27 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
           contributionCount={userNodes.length}
           onClose={() => setStatsMode(null)}
         />
+      )}
+      {prefsOpen && (
+        <div className="sp-panel" style={{ right: UM_WIDTH + 12 }}>
+          <div className="dp-arrow" style={{ top: prefsArrowY }} />
+          <div className="sp-head">
+            <span className="sp-eyebrow">Preferences</span>
+            <button className="modal-close" onClick={() => setPrefsOpen(false)}>×</button>
+          </div>
+          <div className="sp-body">
+            <div className="sp-section">
+              <div className="pref-row">
+                <span className="pref-label">Dark mode</span>
+                <button
+                  className={'pref-toggle' + (darkMode ? ' pref-toggle-on' : '')}
+                  onClick={toggleDarkMode}
+                  aria-label={darkMode ? 'Disable dark mode' : 'Enable dark mode'}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

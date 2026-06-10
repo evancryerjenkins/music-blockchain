@@ -920,6 +920,64 @@ html, body {
   margin: 4px 0;
 }
 
+/* ----- Dark mode ----- */
+[data-theme="dark"] {
+  --bg: #111110;
+  --ink: #eeeee8;
+  --ink-2: #e0e0da;
+  --muted: #888882;
+  --rule: #2c2c28;
+  --rule-2: #1e1e1a;
+  --dead: #555550;
+  --dead-bg: #1a1a16;
+  --accent: oklch(0.72 0.13 55);
+  --accent-soft: oklch(0.22 0.05 70);
+}
+
+/* ----- Preferences panel ----- */
+.pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.pref-label {
+  font-size: 11px;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.pref-toggle {
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--muted);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 180ms ease, border-color 180ms ease;
+  padding: 0;
+}
+.pref-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 180ms ease, background 180ms ease;
+}
+.pref-toggle-on {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.pref-toggle-on::after {
+  transform: translateX(12px);
+  background: var(--bg);
+}
+
 /* ----- Zoom control ----- */
 .zoom-control {
   display: flex;
