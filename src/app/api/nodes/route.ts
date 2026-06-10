@@ -35,10 +35,11 @@ function validateBody(body: Record<string, unknown>): string | null {
   return null;
 }
 
-function getSupabase() {
+function getSupabase(token?: string) {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
   );
 }
 
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'You must be logged in to add songs.' }, { status: 401 });
   }
 
-  const supabase = getSupabase();
+  const supabase = getSupabase(token);
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) {
     return NextResponse.json({ error: 'Invalid or expired session. Please log in again.' }, { status: 401 });
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase
       .from('music_nodes')
-      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: addedBy, session_token: userId })
+      .insert({ song_title, artist, genre, year, album_art, itunes_url, preview_url, depth: 0, parent_id: null, added_by: addedBy, session_token: userId, user_id: userId })
       .select()
       .single();
     if (error) {
@@ -181,6 +182,7 @@ export async function POST(req: NextRequest) {
       depth: parent.depth + 1,
       added_by: addedBy,
       session_token: userId,
+      user_id: userId,
     })
     .select()
     .single();

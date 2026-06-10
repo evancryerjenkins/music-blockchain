@@ -29,7 +29,6 @@ export default function AuthModal({ onSuccess, onClose }: Props) {
           options: { data: { display_name: displayName.trim() } },
         });
         if (err) { setError(err.message); return; }
-        // signUp auto-signs in when email confirmation is disabled
         onSuccess();
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -43,7 +42,7 @@ export default function AuthModal({ onSuccess, onClose }: Props) {
 
   return (
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 380 }}>
+      <div className="modal" style={{ maxWidth: 360 }}>
         <div className="modal-head">
           <div>
             <h2>{mode === 'login' ? 'Log in' : 'Create account'}</h2>
@@ -95,19 +94,22 @@ export default function AuthModal({ onSuccess, onClose }: Props) {
             />
           </div>
 
-          {error && <div className="modal-error">{error}</div>}
+          {error && <div className="modal-error" style={{ margin: '0' }}>{error}</div>}
 
-          <div className="actions" style={{ marginTop: 4 }}>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError(null); }}
-            >
-              {mode === 'login' ? 'Sign up instead' : 'Log in instead'}
-            </button>
-            <button type="submit" className="btn primary" disabled={loading}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, marginTop: 4 }}>
+            <button type="submit" className="auth-submit-btn" disabled={loading}>
               {loading ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
             </button>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+              {mode === 'login' ? 'No account? ' : 'Already have an account? '}
+              <button
+                type="button"
+                className="auth-switch-link"
+                onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError(null); }}
+              >
+                {mode === 'login' ? 'Sign up' : 'Log in'}
+              </button>
+            </span>
           </div>
         </form>
       </div>
