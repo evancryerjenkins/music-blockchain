@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -33,7 +33,9 @@ export default function ChatPanel({ session, onShowAuth }: Props) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -89,6 +91,10 @@ export default function ChatPanel({ session, onShowAuth }: Props) {
 
   const handleOpen = () => {
     if (!session) { onShowAuth(); return; }
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPanelStyle({ top: rect.bottom + 12, right: window.innerWidth - rect.right });
+    }
     setOpen(o => !o);
   };
 
@@ -121,10 +127,10 @@ export default function ChatPanel({ session, onShowAuth }: Props) {
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      <button className="stats-btn" onClick={handleOpen}>chat</button>
+      <button ref={buttonRef} className="stats-btn" onClick={handleOpen}>chat</button>
 
       {open && session && (
-        <div className="chat-panel">
+        <div className="chat-panel" style={panelStyle}>
           <div className="sp-head">
             <span className="sp-eyebrow">Global Chat</span>
             <button className="modal-close" onClick={() => setOpen(false)}>×</button>

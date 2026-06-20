@@ -1136,9 +1136,7 @@ html, body {
 
 /* ----- Chat panel ----- */
 .chat-panel {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
+  position: fixed;
   width: 320px;
   max-height: calc(100dvh - 120px);
   display: flex; flex-direction: column;
