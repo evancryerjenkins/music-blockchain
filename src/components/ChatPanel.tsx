@@ -65,7 +65,7 @@ export default function ChatPanel({ session, onShowAuth }: Props) {
 
   // Focus input when opened
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 50);
+    if (open) setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
   }, [open]);
 
   // Scroll to bottom when messages change
