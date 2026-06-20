@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { MusicNode } from '@/lib/types';
 import StatsPanel from './StatsPanel';
+import DarkerModeOverlay from './DarkerModeOverlay';
 
 interface Props {
   session: Session | null;
@@ -20,6 +21,7 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [prefsArrowY, setPrefsArrowY] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
+  const [darkerMode, setDarkerMode] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +98,8 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
   };
 
   return (
+    <>
+    {darkerMode && <DarkerModeOverlay />}
     <div ref={containerRef} style={{ position: 'relative' }}>
       <button
         className="stats-btn"
@@ -181,10 +185,19 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
                   aria-label={darkMode ? 'Disable dark mode' : 'Enable dark mode'}
                 />
               </div>
+              <div className="pref-row">
+                <span className="pref-label">Darker mode</span>
+                <button
+                  className={'pref-toggle' + (darkerMode ? ' pref-toggle-on' : '')}
+                  onClick={() => setDarkerMode(d => !d)}
+                  aria-label={darkerMode ? 'Disable darker mode' : 'Enable darker mode'}
+                />
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
+    </>
   );
 }
