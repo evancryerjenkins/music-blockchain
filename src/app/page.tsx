@@ -6,6 +6,7 @@ import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
 import AuthModal from '@/components/AuthModal';
 import UserMenu from '@/components/UserMenu';
+import ChatPanel from '@/components/ChatPanel';
 import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
 import type { Session } from '@supabase/supabase-js';
 
@@ -1087,6 +1088,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-label="Spotify"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.297c-.215.35-.676.46-1.025.244-2.808-1.715-6.341-2.102-10.503-1.15-.4.092-.8-.158-.892-.558-.092-.4.158-.8.558-.892 4.556-1.04 8.464-.593 11.618 1.331.349.216.46.677.244 1.025zm1.472-3.272c-.27.44-.846.578-1.285.307-3.213-1.975-8.113-2.547-11.913-1.394-.494.15-1.015-.13-1.164-.623-.149-.493.131-1.015.624-1.163 4.344-1.318 9.74-.68 13.43 1.588.44.27.578.846.308 1.285zm.126-3.407c-3.854-2.29-10.211-2.499-13.888-1.382-.59.179-1.214-.154-1.393-.744-.179-.59.155-1.214.744-1.393 4.226-1.283 11.252-1.034 15.688 1.597.531.315.706 1.003.39 1.534-.314.531-1.002.706-1.541.388z"/></svg>
             </a>
           )}
+          <ChatPanel session={session} onShowAuth={() => setShowAuth(true)} />
           <UserMenu session={session} nodes={apiNodes} onShowAuth={() => setShowAuth(true)} />
         </div>
       </div>
