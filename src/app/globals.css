@@ -372,8 +372,9 @@ html, body {
 .node.dead .index-label .ord { color: var(--dead); }
 
 /* Highlight-my-nodes mode */
+.node.dimmed { opacity: 0.2; }
 .node.dimmed .node-shape { border-color: var(--dead); background: var(--dead-bg); }
-.node.dimmed .cover-frame { opacity: 0.5; filter: grayscale(0.5); }
+.node.dimmed .cover-frame { filter: grayscale(1); }
 .node.dimmed .index-label, .node.dimmed .index-label .ord { color: var(--dead); }
 .node.my-node .node-shape { border-color: var(--ink); background: var(--bg); }
 .node.my-node .cover-frame { opacity: 1; filter: none; }
