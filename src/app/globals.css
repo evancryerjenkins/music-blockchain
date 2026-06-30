@@ -370,6 +370,15 @@ html, body {
 }
 .node.dead .index-label { color: var(--dead); }
 .node.dead .index-label .ord { color: var(--dead); }
+
+/* Highlight-my-nodes mode */
+.node.dimmed .node-shape { border-color: var(--dead); background: var(--dead-bg); }
+.node.dimmed .cover-frame { opacity: 0.5; filter: grayscale(0.5); }
+.node.dimmed .index-label, .node.dimmed .index-label .ord { color: var(--dead); }
+.node.my-node .node-shape { border-color: var(--ink); background: var(--bg); }
+.node.my-node .cover-frame { opacity: 1; filter: none; }
+.node.my-node .index-label, .node.my-node .index-label .ord { color: var(--ink); }
+
 .death-tag {
   position: absolute;
   top: -14px; left: 50%;

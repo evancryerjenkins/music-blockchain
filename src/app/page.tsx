@@ -1138,14 +1138,21 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
           {decorated.map(n => {
             const isSource = n.id === ana?.srcId;
+            const myUserId = session?.user.id;
+            const myDisplayName = session?.user.user_metadata?.display_name ?? session?.user.email;
+            const isMyNode = highlightMyNodes && session && (
+              myUserId ? n.userId === myUserId : (myDisplayName ? n.addedBy === myDisplayName : false)
+            );
             const cls = ['node',
               isSource ? 'source' : '',
               n.status === 'MAIN' ? 'main' : '',
-              n.status === 'DEAD' ? 'dead' : '',
+              n.status === 'DEAD' && !isMyNode ? 'dead' : '',
               n.isMainHead ? 'head' : '',
               n.id === activeId ? 'active' : '',
               n.id === hoverId  ? 'hovered' : '',
               nodesWithDownFork.has(n.id) ? 'label-top' : '',
+              highlightMyNodes && !isMyNode ? 'dimmed' : '',
+              isMyNode ? 'my-node' : '',
             ].filter(Boolean).join(' ');
             const seed = n.xs * 5 + (n.lane + 3) * 7 + (isSource ? 1 : 0);
             const showDeadTag = n.status === 'DEAD' && n.id === n.branchLeafId;
