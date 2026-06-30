@@ -940,11 +940,8 @@ const [activeId, setActiveId] = useState<string | null>(null);
         {decorated.map(n => {
           const cx = sx(n), cy = sy(n);
           const isFocus = n.id === readoutId;
-          const userId = session?.user.id;
           const displayName = session?.user.user_metadata?.display_name ?? session?.user.email;
-          const isMyNode = highlightMyNodes && session && (
-            userId ? n.userId === userId : (displayName ? n.addedBy === displayName : false)
-          );
+          const isMyNode = highlightMyNodes && !!displayName && n.addedBy === displayName;
           const color = isFocus
             ? 'var(--accent)'
             : highlightMyNodes
@@ -1138,11 +1135,8 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
           {decorated.map(n => {
             const isSource = n.id === ana?.srcId;
-            const myUserId = session?.user.id;
             const myDisplayName = session?.user.user_metadata?.display_name ?? session?.user.email;
-            const isMyNode = highlightMyNodes && session && (
-              myUserId ? n.userId === myUserId : (myDisplayName ? n.addedBy === myDisplayName : false)
-            );
+            const isMyNode = highlightMyNodes && !!myDisplayName && n.addedBy === myDisplayName;
             const cls = ['node',
               isSource ? 'source' : '',
               n.status === 'MAIN' ? 'main' : '',
