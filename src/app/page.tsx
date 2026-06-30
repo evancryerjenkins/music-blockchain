@@ -37,6 +37,7 @@ interface RawNode {
   link: { kind: string; value: string } | null;
   cover: string | null;
   addedBy: string | null;
+  userId: string | null;
   createdAt: string;
 }
 
@@ -121,6 +122,7 @@ function toRawNodes(apiNodes: MusicNode[]): RawNode[] {
       link,
       cover: n.album_art,
       addedBy: n.added_by,
+      userId: n.user_id,
       createdAt: n.created_at,
     };
   });
@@ -457,6 +459,7 @@ export default function HomePage() {
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
   const [session, setSession] = useState<Session | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [highlightMyNodes, setHighlightMyNodes] = useState(false);
 
   useEffect(() => {
     async function initAuth() {
@@ -937,7 +940,16 @@ const [activeId, setActiveId] = useState<string | null>(null);
         {decorated.map(n => {
           const cx = sx(n), cy = sy(n);
           const isFocus = n.id === readoutId;
-          const color = isFocus ? 'var(--accent)' : n.status === 'DEAD' ? '#b5b5ad' : '#0d0d0d';
+          const userId = session?.user.id;
+          const displayName = session?.user.user_metadata?.display_name ?? session?.user.email;
+          const isMyNode = highlightMyNodes && session && (
+            userId ? n.userId === userId : (displayName ? n.addedBy === displayName : false)
+          );
+          const color = isFocus
+            ? 'var(--accent)'
+            : highlightMyNodes
+              ? (isMyNode ? '#0d0d0d' : '#b5b5ad')
+              : (n.status === 'DEAD' ? '#b5b5ad' : '#0d0d0d');
           if (n.id === ana?.srcId)
             return <rect key={n.id} x={cx - 3} y={cy - 3} width="6" height="6" fill={color} />;
           return <circle key={n.id} cx={cx} cy={cy} r={n.status === 'MAIN' ? 3 : 2.5} fill={color} />;
@@ -1010,7 +1022,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           <button className="btn-seed" onClick={() => {
             if (!session) { setShowAuth(true); return; }
             const seedPlus: PlusNode = { id: '+seed', parent: '', xs: 0, lane: 0, kind: 'extend-main' };
-            const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null, addedBy: null, createdAt: '' };
+            const seedParent: RawNode = { id: '', parent: null, side: 0, t: '', a: '', g: '', y: null, link: null, cover: null, addedBy: null, userId: null, createdAt: '' };
             setAddingPlus(seedPlus);
           }}>
             Plant the Seed
@@ -1089,7 +1101,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
             </a>
           )}
           <ChatPanel session={session} onShowAuth={() => setShowAuth(true)} />
-          <UserMenu session={session} nodes={apiNodes} onShowAuth={() => setShowAuth(true)} />
+          <UserMenu session={session} nodes={apiNodes} onShowAuth={() => setShowAuth(true)} onHighlightMyNodesChange={setHighlightMyNodes} />
         </div>
       </div>
 

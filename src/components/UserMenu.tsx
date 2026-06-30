@@ -10,11 +10,12 @@ interface Props {
   session: Session | null;
   nodes: MusicNode[];
   onShowAuth: () => void;
+  onHighlightMyNodesChange: (value: boolean) => void;
 }
 
 const UM_WIDTH = 200;
 
-export default function UserMenu({ session, nodes, onShowAuth }: Props) {
+export default function UserMenu({ session, nodes, onShowAuth, onHighlightMyNodesChange }: Props) {
   const [open, setOpen] = useState(false);
   const [statsMode, setStatsMode] = useState<'user' | 'chain' | null>(null);
   const [arrowY, setArrowY] = useState(0);
@@ -22,15 +23,21 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
   const [prefsArrowY, setPrefsArrowY] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
   const [darkerMode, setDarkerMode] = useState(false);
+  const [highlightMyNodes, setHighlightMyNodes] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Load dark mode preference on mount
+  // Load preferences on mount
   useEffect(() => {
     const saved = localStorage.getItem('darkMode') === 'true';
     if (saved) {
       setDarkMode(true);
       document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    const savedHighlight = localStorage.getItem('highlightMyNodes') === 'true';
+    if (savedHighlight) {
+      setHighlightMyNodes(true);
+      onHighlightMyNodesChange(true);
     }
   }, []);
 
@@ -64,6 +71,15 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
         document.documentElement.removeAttribute('data-theme');
       }
       localStorage.setItem('darkMode', String(next));
+      return next;
+    });
+  };
+
+  const toggleHighlightMyNodes = () => {
+    setHighlightMyNodes(h => {
+      const next = !h;
+      localStorage.setItem('highlightMyNodes', String(next));
+      onHighlightMyNodesChange(next);
       return next;
     });
   };
@@ -191,6 +207,14 @@ export default function UserMenu({ session, nodes, onShowAuth }: Props) {
                   className={'pref-toggle' + (darkerMode ? ' pref-toggle-on' : '')}
                   onClick={() => setDarkerMode(d => !d)}
                   aria-label={darkerMode ? 'Disable darker mode' : 'Enable darker mode'}
+                />
+              </div>
+              <div className="pref-row">
+                <span className="pref-label">Highlight my nodes</span>
+                <button
+                  className={'pref-toggle' + (highlightMyNodes ? ' pref-toggle-on' : '')}
+                  onClick={toggleHighlightMyNodes}
+                  aria-label={highlightMyNodes ? 'Disable node highlight' : 'Highlight my nodes'}
                 />
               </div>
             </div>
