@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import { getIp } from '@/lib/getIp';
 import { acquireSessionLock, releaseSessionLock } from '@/lib/sessionLock';
 import { lookupAndSaveSpotifyUri, syncSpotifyPlaylist } from '@/lib/spotify';
+import { notifyNewNode } from '@/lib/notify';
 
 function isAllowedUrl(url: unknown): boolean {
   if (url === undefined || url === null) return true;
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to add root node.' }, { status: 500 });
     }
     await lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
+    await notifyNewNode(song_title, artist, addedBy, userId).catch(e => console.error('[notify root]', e));
     return NextResponse.json({ node: data }, { status: 201 });
   }
 
@@ -195,6 +197,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to add node.' }, { status: 500 });
   }
   await lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
+  await notifyNewNode(song_title, artist, addedBy, userId).catch(e => console.error('[notify]', e));
+
   return NextResponse.json({ node: data, similarity }, { status: 201 });
 
   } finally {

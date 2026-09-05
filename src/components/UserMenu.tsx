@@ -24,6 +24,8 @@ export default function UserMenu({ session, nodes, onShowAuth, onHighlightMyNode
   const [darkMode, setDarkMode] = useState(false);
   const [darkerMode, setDarkerMode] = useState(false);
   const [highlightMyNodes, setHighlightMyNodes] = useState(false);
+  const [emailNotify, setEmailNotify] = useState(false);
+  const [emailNotifySaving, setEmailNotifySaving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +63,40 @@ export default function UserMenu({ session, nodes, onShowAuth, onHighlightMyNode
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Unlike the other toggles this one is stored server-side, so read it back
+  // whenever the panel opens rather than from localStorage.
+  useEffect(() => {
+    if (!prefsOpen || !session) return;
+    fetch('/api/notify-prefs', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) setEmailNotify(d.enabled); })
+      .catch(() => {});
+  }, [prefsOpen, session]);
+
+  const toggleEmailNotify = async () => {
+    if (!session || emailNotifySaving) return;
+    const next = !emailNotify;
+    setEmailNotify(next);
+    setEmailNotifySaving(true);
+    try {
+      const res = await fetch('/api/notify-prefs', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (!res.ok) setEmailNotify(!next);
+    } catch {
+      setEmailNotify(!next);
+    } finally {
+      setEmailNotifySaving(false);
+    }
+  };
 
   const toggleDarkMode = () => {
     setDarkMode(d => {
@@ -215,6 +251,15 @@ export default function UserMenu({ session, nodes, onShowAuth, onHighlightMyNode
                   className={'pref-toggle' + (highlightMyNodes ? ' pref-toggle-on' : '')}
                   onClick={toggleHighlightMyNodes}
                   aria-label={highlightMyNodes ? 'Disable node highlight' : 'Highlight my nodes'}
+                />
+              </div>
+              <div className="pref-row">
+                <span className="pref-label">Email me new songs</span>
+                <button
+                  className={'pref-toggle' + (emailNotify ? ' pref-toggle-on' : '')}
+                  onClick={toggleEmailNotify}
+                  disabled={emailNotifySaving}
+                  aria-label={emailNotify ? 'Disable new song emails' : 'Email me when a song is added'}
                 />
               </div>
             </div>
