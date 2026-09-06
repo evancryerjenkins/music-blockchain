@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { MusicNode } from '@/lib/types';
 import StatsPanel from './StatsPanel';
 import DarkerModeOverlay from './DarkerModeOverlay';
+import { publicDisplayName } from '@/lib/displayName';
 
 interface Props {
   session: Session | null;
@@ -90,7 +91,7 @@ export default function UserMenu({ session, nodes, onShowAuth, onHighlightMyNode
     );
   }
 
-  const displayName = session.user.user_metadata?.display_name ?? session.user.email ?? 'Account';
+  const displayName = publicDisplayName(session.user) ?? 'Account';
   const userId = session.user.id;
   const userNodes = nodes.filter(n => n.user_id ? n.user_id === userId : n.added_by === displayName);
 

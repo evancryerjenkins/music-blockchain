@@ -5,6 +5,8 @@ import { MusicNode, ItunesTrack, SimilarityReason } from '@/lib/types';
 import { checkSimilarity } from '@/lib/similarity';
 import AddSongModal from '@/components/AddSongModal';
 import AuthModal from '@/components/AuthModal';
+import DisplayNamePrompt from '@/components/DisplayNamePrompt';
+import { publicDisplayName } from '@/lib/displayName';
 import UserMenu from '@/components/UserMenu';
 import ChatPanel from '@/components/ChatPanel';
 import WelcomeScreen, { useFirstVisit } from '@/components/WelcomeScreen';
@@ -940,7 +942,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
         {decorated.map(n => {
           const cx = sx(n), cy = sy(n);
           const isFocus = n.id === readoutId;
-          const displayName = session?.user.user_metadata?.display_name ?? session?.user.email;
+          const displayName = publicDisplayName(session?.user);
           const isMyNode = highlightMyNodes && !!displayName && n.addedBy === displayName;
           const color = isFocus
             ? 'var(--accent)'
@@ -1135,7 +1137,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
 
           {decorated.map(n => {
             const isSource = n.id === ana?.srcId;
-            const myDisplayName = session?.user.user_metadata?.display_name ?? session?.user.email;
+            const myDisplayName = publicDisplayName(session?.user);
             const isMyNode = highlightMyNodes && !!myDisplayName && n.addedBy === myDisplayName;
             const cls = ['node',
               isSource ? 'source' : '',
@@ -1453,7 +1455,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           plus={addingPlus}
           parent={byIdDeco.get(addingPlus.parent)!}
           existingNodes={existingNodes}
-          displayName={session?.user?.user_metadata?.display_name ?? session?.user?.email ?? ''}
+          displayName={publicDisplayName(session?.user) ?? ''}
           onClose={() => { setAddingPlus(null); setAddError(null); }}
           onAdd={handleAdd}
           externalError={addError}
@@ -1473,6 +1475,18 @@ const [activeId, setActiveId] = useState<string | null>(null);
         <AuthModal
           onSuccess={() => setShowAuth(false)}
           onClose={() => setShowAuth(false)}
+        />
+      )}
+
+      {/* Google sign-in gives us no display_name, so ask before they contribute. */}
+      {session && !publicDisplayName(session.user) && (
+        <DisplayNamePrompt
+          user={session.user}
+          onDone={async () => {
+            const { supabase } = await import('@/lib/supabase');
+            const { data } = await supabase.auth.getSession();
+            setSession(data.session);
+          }}
         />
       )}
     </div>

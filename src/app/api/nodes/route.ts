@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import { getIp } from '@/lib/getIp';
 import { acquireSessionLock, releaseSessionLock } from '@/lib/sessionLock';
 import { lookupAndSaveSpotifyUri, syncSpotifyPlaylist } from '@/lib/spotify';
+import { publicDisplayName } from '@/lib/displayName';
 
 function isAllowedUrl(url: unknown): boolean {
   if (url === undefined || url === null) return true;
@@ -78,7 +79,11 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = user.id;
-  const addedBy: string = (user.user_metadata?.display_name as string | undefined)?.trim() || user.email || 'Unknown';
+  // added_by is world-readable, so never fall back to the email address.
+  const addedBy = publicDisplayName(user);
+  if (!addedBy) {
+    return NextResponse.json({ error: 'Choose a display name before adding a song.' }, { status: 400 });
+  }
 
   let body: Record<string, unknown>;
   try {

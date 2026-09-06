@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { rateLimit } from '@/lib/rateLimit';
 import { getIp } from '@/lib/getIp';
 import { moderateChat } from '@/lib/moderateChat';
+import { publicDisplayName } from '@/lib/displayName';
 
 function getSupabase(token?: string) {
   return createClient(
@@ -73,10 +74,11 @@ export async function POST(req: NextRequest) {
   const modError = moderateChat(message);
   if (modError) return NextResponse.json({ error: modError }, { status: 400 });
 
-  const displayName: string =
-    (user.user_metadata?.display_name as string | undefined)?.trim() ||
-    user.email ||
-    'Unknown';
+  // chat_messages.display_name is world-readable, so never fall back to email.
+  const displayName = publicDisplayName(user);
+  if (!displayName) {
+    return NextResponse.json({ error: 'Choose a display name before sending a message.' }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from('chat_messages')
