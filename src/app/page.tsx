@@ -461,7 +461,22 @@ export default function HomePage() {
   const { show: showWelcome, dismiss: dismissWelcome } = useFirstVisit();
   const [session, setSession] = useState<Session | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [highlightMyNodes, setHighlightMyNodes] = useState(false);
+
+  /* A failed OAuth sign-in comes back as a redirect carrying error params —
+     signInWithOAuth navigates away, so it can never reject in the caller. */
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const query = new URLSearchParams(window.location.search);
+    const message =
+      hash.get('error_description') ?? query.get('error_description') ??
+      hash.get('error') ?? query.get('error');
+    if (!message) return;
+    setAuthError(message.replace(/\+/g, ' '));
+    setShowAuth(true);
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   useEffect(() => {
     async function initAuth() {
@@ -1062,7 +1077,7 @@ const [activeId, setActiveId] = useState<string | null>(null);
           />
         )}
         {showAuth && (
-          <AuthModal onSuccess={() => setShowAuth(false)} onClose={() => setShowAuth(false)} />
+          <AuthModal onSuccess={() => setShowAuth(false)} onClose={() => { setShowAuth(false); setAuthError(null); }} externalError={authError} />
         )}
       </div>
     );
@@ -1474,7 +1489,8 @@ const [activeId, setActiveId] = useState<string | null>(null);
       {showAuth && (
         <AuthModal
           onSuccess={() => setShowAuth(false)}
-          onClose={() => setShowAuth(false)}
+          onClose={() => { setShowAuth(false); setAuthError(null); }}
+          externalError={authError}
         />
       )}
 

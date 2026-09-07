@@ -6,9 +6,11 @@ import { supabase } from '@/lib/supabase';
 interface Props {
   onSuccess: () => void;
   onClose: () => void;
+  /** An OAuth failure carried back on the redirect, which never reaches handleGoogle. */
+  externalError?: string | null;
 }
 
-export default function AuthModal({ onSuccess, onClose }: Props) {
+export default function AuthModal({ onSuccess, onClose, externalError }: Props) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -114,7 +116,9 @@ export default function AuthModal({ onSuccess, onClose }: Props) {
             />
           </div>
 
-          {error && <div className="modal-error" style={{ margin: '0' }}>{error}</div>}
+          {(error ?? externalError) && (
+            <div className="modal-error" style={{ margin: '0' }}>{error ?? externalError}</div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, marginTop: 4 }}>
             <button type="submit" className="auth-submit-btn" disabled={loading}>
