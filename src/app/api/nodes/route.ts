@@ -44,6 +44,20 @@ function getSupabase(token?: string) {
 }
 
 
+// Look up the new node's Spotify URI and refresh the playlist. Both steps fail
+// soft so a Spotify outage can never block adding a song — but log the reason,
+// or a broken sync is invisible in production.
+async function syncNewNode(nodeId: string, songTitle: string, artist: string) {
+  try {
+    const lookup = await lookupAndSaveSpotifyUri(nodeId, songTitle, artist);
+    if (!lookup.ok) console.error('[spotify lookup]', lookup.reason);
+    const sync = await syncSpotifyPlaylist();
+    if (!sync.ok) console.error('[spotify sync]', sync.error);
+  } catch (e) {
+    console.error('[spotify sync] threw', e);
+  }
+}
+
 export async function GET() {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -138,7 +152,7 @@ export async function POST(req: NextRequest) {
       console.error('[POST /api/nodes] insert root', error);
       return NextResponse.json({ error: 'Failed to add root node.' }, { status: 500 });
     }
-    await lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
+    await syncNewNode(data.id, song_title, artist);
     return NextResponse.json({ node: data }, { status: 201 });
   }
 
@@ -194,7 +208,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Failed to add node.' }, { status: 500 });
   }
-  await lookupAndSaveSpotifyUri(data.id, song_title, artist).then(() => syncSpotifyPlaylist()).catch(e => console.error('[spotify sync]', e));
+  await syncNewNode(data.id, song_title, artist);
   return NextResponse.json({ node: data, similarity }, { status: 201 });
 
   } finally {

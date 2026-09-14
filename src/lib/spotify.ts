@@ -10,7 +10,7 @@ async function getStoredRefreshToken(): Promise<string> {
   return stored ?? process.env.SPOTIFY_REFRESH_TOKEN!;
 }
 
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
   const refreshToken = await getStoredRefreshToken();
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
@@ -29,7 +29,7 @@ async function getAccessToken(): Promise<string> {
   return data.access_token as string;
 }
 
-async function searchTrack(title: string, artist: string, token: string): Promise<string | null> {
+export async function searchTrack(title: string, artist: string, token: string): Promise<string | null> {
   const q = encodeURIComponent(`track:${title} artist:${artist}`);
   const url = `https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`;
   const headers = { Authorization: `Bearer ${token}` };
@@ -49,21 +49,37 @@ async function searchTrack(title: string, artist: string, token: string): Promis
 
 // Look up a Spotify URI for a single track and save it to the DB.
 // Uses the service role key to bypass RLS for the UPDATE.
-export async function lookupAndSaveSpotifyUri(nodeId: string, title: string, artist: string): Promise<void> {
-  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET || !process.env.SPOTIFY_REFRESH_TOKEN) return;
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+// Returns a reason on failure so callers can log why a node has no URI.
+export async function lookupAndSaveSpotifyUri(nodeId: string, title: string, artist: string): Promise<{ ok: boolean; reason?: string }> {
+  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET || !process.env.SPOTIFY_REFRESH_TOKEN) {
+    return { ok: false, reason: 'Spotify env vars not configured' };
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: false, reason: 'SUPABASE_SERVICE_ROLE_KEY not configured' };
+  }
 
-  const token = await getAccessToken().catch(() => null);
-  if (!token) return;
+  let token: string;
+  try {
+    token = await getAccessToken();
+  } catch (e) {
+    return { ok: false, reason: `token refresh failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
 
-  const uri = await searchTrack(title, artist, token).catch(() => null);
-  if (!uri) return;
+  let uri: string | null;
+  try {
+    uri = await searchTrack(title, artist, token);
+  } catch (e) {
+    return { ok: false, reason: `search threw: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!uri) return { ok: false, reason: `no Spotify match for "${title}" — ${artist}` };
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
-  await supabase.from('music_nodes').update({ spotify_uri: uri }).eq('id', nodeId);
+  const { error } = await supabase.from('music_nodes').update({ spotify_uri: uri }).eq('id', nodeId);
+  if (error) return { ok: false, reason: `DB update failed: ${error.message}` };
+  return { ok: true };
 }
 
 // Sync the main chain to the Spotify playlist using cached URIs — 1 API call.
