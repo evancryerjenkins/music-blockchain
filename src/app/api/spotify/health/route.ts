@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getAccessToken, searchTrack, syncSpotifyPlaylist } from '@/lib/spotify';
 import { getMainChain } from '@/lib/mainChain';
 import { MusicNode } from '@/lib/types';
+import { isDebugAuthorised } from '@/lib/debugAuth';
 
 // Never prerender: this route calls Spotify, which must not happen at build time.
 export const dynamic = 'force-dynamic';
@@ -11,8 +12,7 @@ export const dynamic = 'force-dynamic';
 // Reports only booleans and error strings — never a credential value — so the
 // response is safe to paste into a bug report.
 export async function GET(req: NextRequest) {
-  const secret = process.env.DEBUG_SECRET;
-  if (!secret || req.headers.get('x-debug-secret') !== secret) {
+  if (!isDebugAuthorised(req)) {
     return NextResponse.json({ error: 'Not found.' }, { status: 404 });
   }
 
