@@ -6,45 +6,12 @@
 //   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from '@supabase/supabase-js';
-import { syncSpotifyPlaylist } from '../src/lib/spotify';
+import { getAccessToken, searchTrack, syncSpotifyPlaylist } from '../src/lib/spotify';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-async function getAccessToken(): Promise<string> {
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: 'Basic ' + Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString('base64'),
-    },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: process.env.SPOTIFY_REFRESH_TOKEN! }),
-  });
-  const data = await res.json() as { access_token?: string };
-  if (!data.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
-  return data.access_token;
-}
-
-async function searchTrack(title: string, artist: string, token: string): Promise<string | null> {
-  const q = encodeURIComponent(`track:${title} artist:${artist}`);
-  const url = `https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`;
-  const headers = { Authorization: `Bearer ${token}` };
-
-  while (true) {
-    const res = await fetch(url, { headers });
-    if (res.status === 429) {
-      const retryAfter = parseInt(res.headers.get('Retry-After') ?? '5', 10);
-      console.log(`\n  Rate limited — waiting ${retryAfter}s...`);
-      await new Promise(r => setTimeout(r, retryAfter * 1000));
-      continue;
-    }
-    if (!res.ok) return null;
-    const data = await res.json().catch(() => null) as { tracks?: { items?: { uri: string }[] } } | null;
-    return data?.tracks?.items?.[0]?.uri ?? null;
-  }
-}
 
 async function main() {
   const { data: nodes, error } = await supabase
